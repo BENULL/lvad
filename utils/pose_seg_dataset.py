@@ -4,7 +4,7 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from utils.data_utils import normalize_pose
 
-from utils.patch_utils import gen_clip_seg_data_np
+from utils.segment_utils import gen_clip_seg_data_np
 
 
 class PoseSegDataset(Dataset):
@@ -12,10 +12,8 @@ class PoseSegDataset(Dataset):
     Generates a dataset with two objects, an np array holding sliced pose sequences
     and an object array holding file name, person index and start time for each sliced seq
 
-
-    If path_to_patches is provided uses pre-extracted patches. If lmdb_file or vid_dir are
-    provided extracts patches from them, while hurting performance.
     """
+
     def __init__(self, path_to_json_dir,
                  transform_list=None,
                  return_indices=False, return_metadata=False, debug=False,
@@ -75,6 +73,18 @@ class PoseSegDataset(Dataset):
 
 def gen_dataset(person_json_root, num_clips=None, normalize_pose_segs=True,
                 kp18_format=True, ret_keys=False, **dataset_args):
+    """
+    :param person_json_root:
+    :param num_clips:
+    :param normalize_pose_segs:
+    :param kp18_format:
+    :param ret_keys:
+    :param dataset_args:
+    :return:
+        segs_data_np
+        segs_meta
+        person_keys
+    """
     segs_data_np = []
     segs_meta = []
     person_keys = dict()
@@ -101,6 +111,7 @@ def gen_dataset(person_json_root, num_clips=None, normalize_pose_segs=True,
         segs_meta += clip_segs_meta
         person_keys = {**person_keys, **clip_keys}
     segs_data_np = np.concatenate(segs_data_np, axis=0)
+
     if normalize_pose_segs:
         segs_data_np = normalize_pose(segs_data_np, vid_res=vid_res, **dataset_args)
     if kp18_format and segs_data_np.shape[-2] == 17:
@@ -116,12 +127,31 @@ def gen_dataset(person_json_root, num_clips=None, normalize_pose_segs=True,
         return segs_data_np, segs_meta
 
 
-
 def keypoints17_to_coco18(kps):
     """
     Convert a 17 keypoints coco format skeleton to an 18 keypoint one.
     New keypoint (neck) is the average of the shoulders, and points
     are also reordered.
+
+    Joint index:
+        {0,  "Nose"}
+        {1,  "Neck"},
+        {2,  "RShoulder"},
+        {3,  "RElbow"},
+        {4,  "RWrist"},
+        {5,  "LShoulder"},
+        {6,  "LElbow"},
+        {7,  "LWrist"},
+        {8,  "RHip"},
+        {9,  "RKnee"},
+        {10, "RAnkle"},
+        {11, "LHip"},
+        {12, "LKnee"},
+        {13, "LAnkle"},
+        {14, "REye"},
+        {15, "LEye"},
+        {16, "REar"},
+        {17, "LEar"},
     """
     kp_np = np.array(kps)
     neck_kp_vec = 0.5 * (kp_np[..., 5, :] + kp_np[..., 6, :])
@@ -132,8 +162,14 @@ def keypoints17_to_coco18(kps):
     return kp_coco18
 
 
-# TODO ?seg_conf_th_filter
+
 def seg_conf_th_filter(segs_data_np, segs_meta, seg_conf_th=2.0):
+    """
+    :param segs_data_np:
+    :param segs_meta:
+    :param seg_conf_th: confident threshold
+    :return:
+    """
     seg_len = segs_data_np.shape[2]
     conf_vals = segs_data_np[:, 2]
     sum_confs = conf_vals.sum(axis=(1, 2)) / seg_len
@@ -143,12 +179,12 @@ def seg_conf_th_filter(segs_data_np, segs_meta, seg_conf_th=2.0):
 
 
 if __name__ == '__main__':
-    dataset_args = {'transform_list': [], 'debug': True, 'headless': False, 'return_indices': True, 'return_metadata': True}
-    loader_args = {'batch_size': 6, 'num_workers': 0, 'pin_memory': False}
-    poseDataset = PoseSegDataset('../data/pose/training/tracked_person/', **dataset_args)
+    dataset_args = {'transform_list': [], 'debug': True, 'headless': False, 'return_indices': True,
+                    'return_metadata': True}
+    loader_args = {'batch_size': 512, 'num_workers': 8, 'pin_memory': False}
+    poseDataset = PoseSegDataset('../data/pose/testing/tracked_person/', **dataset_args)
     loader = DataLoader(poseDataset, **loader_args, shuffle=False)
+    print(len(loader.dataset))
+
     for itern, data_arr in enumerate(loader):
-        print(data_arr)
-
-
-
+        print(itern)

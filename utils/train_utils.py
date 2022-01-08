@@ -105,6 +105,9 @@ class Trainer:
 
             self.save_checkpoint(epoch, args=args, filename=checkpoint_filename)
 
+            # print(f"-------loss_list_len-------: {len(loss_list)}")
+            # print(f"-------tran_dataset_len-------: {len(self.train_loader.dataset)}")
+
         return checkpoint_filename, np.mean(loss_list)
 
     def gen_checkpoint_state(self, epoch):
@@ -113,32 +116,33 @@ class Trainer:
                             'optimizer': self.optimizer.state_dict(), }
         return checkpoint_state
 
-    def test(self, cur_epoch, ret_sfmax=False, log=True, args=None):
-        self._test(cur_epoch, self.test_loader, ret_sfmax=ret_sfmax, log=log, args=args)
+    def test(self, cur_epoch, ret_output=False, log=True, args=None):
+        return self._test(cur_epoch, self.test_loader, ret_output=ret_output, log=log, args=args)
 
-    def _test(self, cur_epoch, test_loader, ret_sfmax=True, log=True, args=None):
+    def _test(self, cur_epoch, test_loader, ret_output=True, log=True, args=None):
         print("Testing")
         self.model.eval()
         test_loss = 0
         output_arr = []
+        loss_arr = []
         for itern, data_arr in enumerate(test_loader):
-            # Get Data
             with torch.no_grad():
                 data = data_arr[0].to(args.device)
+                data, reco_data = data[:, :, :args.seg_len-1, :], data[:, :, args.seg_len-1, :].unsqueeze(2)
                 output = self.model(data)
 
-            if ret_sfmax:
+            if ret_output:
                 output_sfmax = output
                 output_arr.append(output_sfmax.detach().cpu().numpy())
                 del output_sfmax
 
-            loss = self.loss(output, data)
+            loss = self.loss(output, reco_data)
+            loss_arr.append(loss.item())
             test_loss += loss.item()
-
         test_loss /= len(test_loader.dataset)
         print("--> Test set loss {:.7f}".format(test_loss))
         self.model.train()
-        if ret_sfmax:
+        if ret_output:
             return output_arr
 
 
@@ -179,7 +183,7 @@ def csv_log_dump(args, log_dict):
     Create CSV log line, with the following format:
     Date, Time, Seed, n_transform, norm_scale, prop_norm_scale, seg_stride, seg_len,
     optimizer, dropout, batch_size, epochs, lr, lr_decay, wd,
-    loss, alpha (=L2 reg coef), gamma, update_interval,
+    loss, alpha (=L2 reg coef), gamma,
     :return:
     """
     try:
@@ -192,7 +196,7 @@ def csv_log_dump(args, log_dict):
                  args.prop_norm_scale, args.seg_stride, args.seg_len,
                  args.optimizer, args.sched, args.dropout, args.batch_size,
                  args.epochs, args.lr, args.lr_decay, args.weight_decay, log_dict['loss'],log_dict['auc'],
-                 args.alpha, args.gamma, args.update_interval]
+                 args.alpha, args.gamma, ]
 
     res_str = '_{}'.format(int(10 * log_dict['auc']))
     log_template = len(param_arr) * '{}, ' + '\n'

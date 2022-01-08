@@ -52,7 +52,7 @@ class PoseTransform(object):
         return x
 
 
-ae_trans_list = [
+trans_list = [
     PoseTransform(sx=1, sy=1, tx=0.0, ty=0, rot=0, flip=False),  # 0
     PoseTransform(sx=1, sy=1, tx=0.0, ty=0, rot=0, flip=True),  # 3
     PoseTransform(sx=1, sy=1, tx=0.0, ty=0, rot=90, flip=False),  # 6
@@ -70,7 +70,7 @@ def normalize_pose(pose_data, **kwargs):
     :return:
     """
     vid_res = kwargs.get('vid_res', [856, 480])
-    symm_range = kwargs.get('symm_range', True)
+    symm_range = kwargs.get('symm_range', True) # Means shift data to [-1, 1] range
     sub_mean = kwargs.get('sub_mean', True)
     scale = kwargs.get('scale', False)
     scale_proportional = kwargs.get('scale_proportional', False)
@@ -82,8 +82,9 @@ def normalize_pose(pose_data, **kwargs):
     if symm_range:  # Means shift data to [-1, 1] range
         pose_data_centered[..., :2] = 2 * pose_data_centered[..., :2] - 1
 
+    pose_data_zero_mean = pose_data_centered
     if sub_mean or scale or scale_proportional:  # Inner frame scaling requires mean subtraction
-        pose_data_zero_mean = pose_data_centered
+        # pose_data_zero_mean = pose_data_centered
         mean_kp_val = np.mean(pose_data_zero_mean[..., :2], (1, 2))
         pose_data_zero_mean[..., :2] -= mean_kp_val[:, None, None, :]
 

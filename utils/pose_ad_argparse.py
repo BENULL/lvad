@@ -11,7 +11,7 @@ def init_args():
 
 def init_sub_args(args):
     if args.debug:
-        args.epochs = 10
+        args.epochs = 5
 
     args.pose_path = {'train': os.path.join(args.data_dir, 'pose', 'training/tracked_person/'),
                       'test':  os.path.join(args.data_dir, 'pose', 'testing/tracked_person/')}
@@ -58,6 +58,8 @@ def init_parser(default_data_dir='data/', default_exp_dir='data/exp_dir'):
                         help='Stride for training segment sliding window (default: 8)')
     parser.add_argument('--alpha', '-a', type=float, default=1e-3, metavar='G',
                         help='Alpha value for weighting L2 regularization (default: 1e-3)')
+    parser.add_argument('--gamma', '-g', type=float, default=0.6, metavar='G',
+                        help='Gamma values for weighting loss (default: 0.6)')
     parser.add_argument('--fn', type=str, metavar='FN',
                         help="Path to a trained models to start with")
     parser.add_argument('--optimizer', '-o', type=str, default='adam', metavar='OPT',

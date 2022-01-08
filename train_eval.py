@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from models.agcn import Model as AGCN
 
-from utils.data_utils import ae_trans_list
+from utils.data_utils import trans_list
 from utils.optim_utils.optim_init import init_optimizer, init_scheduler
 from utils.pose_seg_dataset import PoseSegDataset
 from utils.pose_ad_argparse import init_parser, init_sub_args
@@ -42,8 +42,14 @@ def main():
     scheduler_f = init_scheduler(args.sched, lr=args.lr, epochs=args.epochs)
     trainer = Trainer(args, model, loss, loader['train'], loader['test'], optimizer_f=optimizer_f,
                       scheduler_f=scheduler_f)
+
+    print(f"train dataset lens {len(loader['train'].dataset)}")
+    print(f"test dataset lens {len(loader['test'].dataset)}")
     fn, log_dict['loss'] = trainer.train(args=args)
     print(f"model loss {log_dict['loss']}")
+
+    output_arr = trainer.test(args.epochs, ret_output=True, args=args)
+    # print(loss_arr)
 
     # max_clip = 5 if args.debug else None
     # auc, dp_shift, dp_sigma = score_dataset(dp_scores_tavg, metadata, max_clip=max_clip)
@@ -51,14 +57,14 @@ def main():
     # Logging and recording results
     # print("Done with {} AuC for {} samples and {} trans".format(dp_auc, dp_scores_tavg.shape[0], args.num_transform));
     # log_dict['auc'] = 100 * auc
-    # csv_log_dump(args, log_dict)
+    csv_log_dump(args, log_dict)
 
 
 def get_dataset_and_loader(args):
 
-    trans_list = ae_trans_list[:args.num_transform]
+    transform_list = trans_list[:args.num_transform]
 
-    dataset_args = {'transform_list': trans_list, 'debug': args.debug, 'headless': args.headless,
+    dataset_args = {'transform_list': transform_list, 'debug': args.debug, 'headless': args.headless,
                     'scale': args.norm_scale, 'scale_proportional': args.prop_norm_scale, 'seg_len': args.seg_len,
                     'return_indices': True, 'return_metadata': True}
 
