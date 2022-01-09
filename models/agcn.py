@@ -182,7 +182,7 @@ class Model(nn.Module):
         x = self.l7(x)
         x = self.l8(x)
         x = self.l9(x)
-        x = self.l10(x)
+        # x = self.l10(x)
 
         # N, C, T, V
         # c_new = x.size(1)
@@ -207,14 +207,9 @@ if __name__ == '__main__':
 
     # N, C, T, V
     # N: Batch Size
-    #
     # C：channels
-    #
     # T：Frames' Number
-    #
     # V：Joints‘ Number
-    #
-
     data = torch.ones((2, 3, 12, 18))
     data = data.to(0)
     out = model(data)

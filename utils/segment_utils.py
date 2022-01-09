@@ -88,9 +88,10 @@ def split_pose_to_segments(single_pose_np, single_pose_meta, single_pose_keys, s
         start_ind = start_ofst + seg_ind * seg_dist
         start_key = single_pose_keys_sorted[start_ind]
         if is_seg_continuous(single_pose_keys_sorted, start_key, seg_len):
+            end_key = single_pose_keys_sorted[start_ind + seg_len - 1]
             curr_segment = single_pose_np[start_ind:start_ind + seg_len].reshape(1, seg_len, kp_count, kp_dim)
             pose_segs_np = np.append(pose_segs_np, curr_segment, axis=0)
-            pose_segs_meta.append([int(scene_id), int(clip_id), int(single_pose_meta[0]), int(start_key)])
+            pose_segs_meta.append([int(scene_id), int(clip_id), int(single_pose_meta[0]), int(start_key), int(end_key)])
     return pose_segs_np, pose_segs_meta
 
 def loads_pyarrow(buf):

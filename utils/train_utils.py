@@ -84,13 +84,9 @@ class Trainer:
             print("Started epoch {}".format(epoch))
             for itern, data_arr in enumerate(tqdm(self.train_loader)):
                 data = data_arr[0].to(args.device, non_blocking=True)
-
                 data, reco_data = data[:, :, :args.seg_len-1, :], data[:, :, args.seg_len-1, :].unsqueeze(2)
-                # 预测L+1
                 output = self.model(data)
-
                 reco_loss = self.loss(output, reco_data)
-
                 reg_loss = calc_reg_loss(self.model)
                 loss = reco_loss + 1e-3 * args.alpha * reg_loss
                 loss.backward()
@@ -122,9 +118,8 @@ class Trainer:
     def _test(self, cur_epoch, test_loader, ret_output=True, log=True, args=None):
         print("Testing")
         self.model.eval()
-        test_loss = 0
         output_arr = []
-        loss_arr = []
+        rec_loss_arr = []
         for itern, data_arr in enumerate(test_loader):
             with torch.no_grad():
                 data = data_arr[0].to(args.device)
@@ -136,14 +131,14 @@ class Trainer:
                 output_arr.append(output_sfmax.detach().cpu().numpy())
                 del output_sfmax
 
-            loss = self.loss(output, reco_data)
-            loss_arr.append(loss.item())
-            test_loss += loss.item()
-        test_loss /= len(test_loader.dataset)
+            for origin, reco in zip(output, reco_data):
+                rec_loss = self.loss(origin, reco)
+                rec_loss_arr.append(rec_loss.item())
+        test_loss = sum(rec_loss_arr)/len(test_loader.dataset)
         print("--> Test set loss {:.7f}".format(test_loss))
         self.model.train()
         if ret_output:
-            return output_arr
+            return output_arr, rec_loss_arr
 
 
 def calc_reg_loss(model, reg_type='l2', avg=True):

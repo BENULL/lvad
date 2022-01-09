@@ -13,6 +13,7 @@ from utils.data_utils import trans_list
 from utils.optim_utils.optim_init import init_optimizer, init_scheduler
 from utils.pose_seg_dataset import PoseSegDataset
 from utils.pose_ad_argparse import init_parser, init_sub_args
+from utils.scoring_utils import score_dataset
 from utils.train_utils import Trainer, csv_log_dump
 
 
@@ -48,8 +49,11 @@ def main():
     fn, log_dict['loss'] = trainer.train(args=args)
     print(f"model loss {log_dict['loss']}")
 
-    output_arr = trainer.test(args.epochs, ret_output=True, args=args)
-    # print(loss_arr)
+    output_arr, rec_loss_arr = trainer.test(args.epochs, ret_output=True, args=args)
+
+    max_clip = 5 if args.debug else None
+    auc, shift, sigma = score_dataset(rec_loss_arr, loader['test'].dataset.metadata, max_clip=max_clip)
+    print(f'auc: {auc}')
 
     # max_clip = 5 if args.debug else None
     # auc, dp_shift, dp_sigma = score_dataset(dp_scores_tavg, metadata, max_clip=max_clip)
