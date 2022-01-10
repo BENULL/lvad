@@ -5,4 +5,4 @@
 @author: BENULL
 @time: 2022/1/5 下午3:50
 """
-from . import graph
+from .graph import Graph

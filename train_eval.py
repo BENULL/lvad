@@ -8,6 +8,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from models.agcn import Model as AGCN
+from models.stgcn import STGCN
+from models.stgcn import SS_STGCN
 
 from utils.data_utils import trans_list
 from utils.optim_utils.optim_init import init_optimizer, init_scheduler
@@ -36,7 +38,12 @@ def main():
 
     dataset, loader = get_dataset_and_loader(args)
 
-    model = AGCN(graph='graph.graph.Graph', seq_len=args.seg_len,)
+    models_dict = {'agcn': AGCN(graph='graph.Graph', seq_len=args.seg_len,),
+                   'stgcn':STGCN(),
+                   'ss-stgcn':SS_STGCN()}
+    # model = AGCN(graph='graph.Graph', seq_len=args.seg_len, )
+    print(f'============{args.model}============')
+    model = models_dict[args.model]
     loss = nn.MSELoss()
 
     optimizer_f = init_optimizer(args.optimizer, lr=args.lr)

@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+import torch.nn.functional as F
 
 
 def import_class(name):
@@ -157,20 +158,24 @@ class Model(nn.Module):
         self.l10 = TCN_GCN_unit(256, 256, A)
 
         self.fc_in = 256*((self.seq_len-2)//4+1)*self.num_node
-        self.fc = nn.Linear(self.fc_in, self.num_node*in_channels)
-        # nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / num_class))
+        self.fcn_out = self.num_node*in_channels
+        self.fcn = nn.Conv2d(256, self.fcn_out, kernel_size=1)
+        # self.fc = nn.Linear(256, self.fc_out)
+        # nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / self.fc_out))
         bn_init(self.data_bn, 1)
 
     def forward(self, x):
         if len(x.size()) == 4:
             x = x.unsqueeze(4)
-        # Return to (N*M, c, t, v) structure
+
+        # data normalization
         N, C, T, V, M = x.size()
         x = x.permute(0, 4, 3, 1, 2).contiguous()
         x = x.view(N * M, V * C, T)
         x = self.data_bn(x)
         x = x.view(N, M, V, C, T)
         x = x.permute(0, 1, 3, 4, 2).contiguous()
+        # Return to (N*M, c, t, v) structure
         x = x.view(N * M, C, T, V)
 
         x = self.l1(x)
@@ -184,26 +189,28 @@ class Model(nn.Module):
         x = self.l9(x)
         # x = self.l10(x)
 
-        # N, C, T, V
-        # c_new = x.size(1)
-        # x = x.view(N, M, c_new, -1)
-
-        # x = x.mean(3).mean(1)
-
+        x = F.avg_pool2d(x, x.size()[2:])
+        x = x.view(N, M, -1, 1, 1).mean(dim=1)
 
 
         # N * M, C, T, V
-        _, c, t, v = x.size()
-        x = x.contiguous()
-        x = x.view(N, M, c, t, v).permute(0, 2, 3, 4, 1)
-        x = x.contiguous()
-        x = x.view(N, -1)
-        x = self.fc(x)
+        # _, c, t, v = x.size()
+        # x = x.contiguous()
+        # x = x.view(N, M, c, t, v).permute(0, 2, 3, 4, 1)
+        # x = x.contiguous()
+        # x = x.view(N, -1)
+
+        # x = self.fc(x)
+        # x = x.view(N, C, 1, V)
+
+        # prediction
+        x = self.fcn(x)
         x = x.view(N, C, 1, V)
         return x
 
 if __name__ == '__main__':
     model = Model(graph='graph.graph.Graph').cuda(0)
+    print(model)
 
     # N, C, T, V
     # N: Batch Size
