@@ -162,8 +162,8 @@ def calc_reg_loss(model, reg_type='l2', avg=True):
 def adjust_lr(optimizer, epoch, lr=None, lr_decay=None, scheduler=None):
     if scheduler is not None:
         scheduler.step()
-        # new_lr = scheduler.get_lr()[0]
-        new_lr = scheduler.get_last_lr()[0]
+        new_lr = scheduler.get_lr()[0]
+        # new_lr = scheduler.get_last_lr()[0]
     elif (lr is not None) and (lr_decay is not None):
         new_lr = lr * (lr_decay ** epoch)
         for param_group in optimizer.param_groups:

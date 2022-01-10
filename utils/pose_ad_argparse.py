@@ -24,6 +24,8 @@ def init_sub_args(args):
 def init_parser(default_data_dir='data/', default_exp_dir='data/exp_dir'):
     parser = argparse.ArgumentParser("Pose_AD_Experiment")
     # General Args
+    parser.add_argument('--model', type=str, default='agcn',
+                        help="Model used [agcn, stgcn] (default: 'agcn')")
     parser.add_argument('--debug', action='store_true',
                         help='Debug experiment script with minimal epochs. (default: False)')
     parser.add_argument('--device', type=str, default='cuda:0', metavar='DEV',
