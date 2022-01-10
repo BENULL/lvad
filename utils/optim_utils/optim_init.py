@@ -11,6 +11,8 @@ from utils.optim_utils.schedulers.cosine_annealing_with_warmup import *
 def init_optimizer(type_str, **kwargs):
     if type_str.lower() == 'adam':
         opt_f = optim.Adam
+    elif type_str.lower() == 'sgd':
+        opt_f = optim.SGD
     else:
         return None
 
