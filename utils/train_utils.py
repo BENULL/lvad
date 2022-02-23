@@ -5,6 +5,7 @@ import torch.optim as optim
 import time
 from tqdm import tqdm
 import shutil
+import csv
 
 
 class Trainer:
@@ -40,8 +41,9 @@ class Trainer:
 
     def save_checkpoint(self, epoch, args, is_best=False, filename=None):
         """
-        state: {'epoch': cur_epoch + 1, 'state_dict': self.model.state_dict(),
-                            'optimizer': self.optimizer.state_dict()}
+        state: {'epoch': cur_epoch + 1,
+                'state_dict': self.model.state_dict(),
+                optimizer': self.optimizer.state_dict()}
         """
         state = self.gen_checkpoint_state(epoch)
         if filename is None:
@@ -84,7 +86,7 @@ class Trainer:
             print("Started epoch {}".format(epoch))
             for itern, data_arr in enumerate(tqdm(self.train_loader)):
                 data = data_arr[0].to(args.device, non_blocking=True)
-                data, reco_data = data[:, :, :args.seg_len-1, :], data[:, :, args.seg_len-1, :].unsqueeze(2)
+                data, reco_data = data[:, :args.in_channels, :args.seg_len-1, :], data[:, :args.in_channels, args.seg_len-1, :].unsqueeze(2)
                 output = self.model(data)
                 reco_loss = self.loss(output, reco_data)
                 reg_loss = calc_reg_loss(self.model)
@@ -123,7 +125,7 @@ class Trainer:
         for itern, data_arr in enumerate(test_loader):
             with torch.no_grad():
                 data = data_arr[0].to(args.device)
-                data, reco_data = data[:, :, :args.seg_len-1, :], data[:, :, args.seg_len-1, :].unsqueeze(2)
+                data, reco_data = data[:, :args.in_channels, :args.seg_len-1, :], data[:, :args.in_channels, args.seg_len-1, :].unsqueeze(2)
                 output = self.model(data)
 
             if ret_output:
@@ -190,7 +192,7 @@ def csv_log_dump(args, log_dict):
     param_arr = [date_str, time_str, args.seed, args.num_transform, args.norm_scale,
                  args.prop_norm_scale, args.seg_stride, args.seg_len,
                  args.optimizer, args.sched, args.dropout, args.batch_size,
-                 args.epochs, args.lr, args.lr_decay, args.weight_decay, log_dict['loss'],log_dict['auc'],
+                 args.epochs, args.lr, args.lr_decay, args.weight_decay, log_dict['loss'], log_dict['auc'],
                  args.alpha, args.gamma, ]
 
     res_str = '_{}'.format(int(10 * log_dict['auc']))
@@ -200,6 +202,10 @@ def csv_log_dump(args, log_dict):
     csv_path = os.path.join(args.ckpt_dir, '{}{}{}_log_dump.csv'.format(date_time, debug_str, res_str))
     with open(csv_path, 'w') as csv_file:
         csv_file.write(log_str)
+
+    experiment_csv_log = os.path.join(args.exp_dir, 'experiment_csv_log.csv')
+    with open(experiment_csv_log, "a+") as file:
+        file.write(log_str)
 
 
 

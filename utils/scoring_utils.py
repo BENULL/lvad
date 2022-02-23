@@ -6,24 +6,26 @@ from sklearn.metrics import roc_auc_score
 from torch.utils.data import DataLoader
 from sklearn import mixture
 from joblib import dump, load
+from utils.pose_seg_dataset import HUMAN_IRRELATED_CLIPS
 
 
-def score_dataset(score_vals, metadata, max_clip=None, scene_id=None):
+def score_dataset(score_vals, metadata, max_clip=None, scene_id=None, args=None):
     score_vals = np.array(score_vals)
-    gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores(score_vals, metadata, max_clip, scene_id)
+    gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores(score_vals, metadata, max_clip, scene_id, args)
     gt_np = np.concatenate(gt_arr)
     scores_np = np.concatenate(scores_arr)
     auc, shift, sigma = score_align(scores_np, gt_np)
     return auc, shift, sigma
 
 
-def get_dataset_scores(scores, metadata, max_clip=None, scene_id=None):
+def get_dataset_scores(scores, metadata, max_clip=None, scene_id=None, args=None):
     dataset_gt_arr = []
     dataset_scores_arr = []
     dataset_metadata_arr = []
     dataset_score_ids_arr = []
     metadata_np = np.array(metadata)
-    per_frame_scores_root = 'data/pose/testing/test_frame_mask/'
+    # per_frame_scores_root = 'data/pose/testing/test_frame_mask/'
+    per_frame_scores_root = f'{args.data_dir}/pose/testing/test_frame_mask/'
     clip_list = os.listdir(per_frame_scores_root)
     clip_list = sorted(fn for fn in clip_list if fn.endswith('.npy'))
     if scene_id is not None:
@@ -33,9 +35,12 @@ def get_dataset_scores(scores, metadata, max_clip=None, scene_id=None):
         clip_list = clip_list[:max_clip]
     print("Scoring {} clips".format(len(clip_list)))
     for clip in clip_list:
+        scene_id, clip_id = clip.split('.')[0].split('_')
+        if args.hr and f'{scene_id}_{clip_id}' in HUMAN_IRRELATED_CLIPS:
+            continue
         clip_res_fn = os.path.join(per_frame_scores_root, clip)
         clip_gt = np.load(clip_res_fn)
-        scene_id, clip_id = [int(i) for i in clip.split('.')[0].split('_')]
+        scene_id, clip_id = int(scene_id), int(clip_id)
         clip_metadata_inds = np.where((metadata_np[:, 1] == clip_id) &
                                       (metadata_np[:, 0] == scene_id))[0]
         clip_metadata = metadata[clip_metadata_inds]
@@ -48,7 +53,6 @@ def get_dataset_scores(scores, metadata, max_clip=None, scene_id=None):
                                             (metadata_np[:, 0] == scene_id) &
                                             (metadata_np[:, 2] == person_id))[0]
             pid_scores = scores[person_metadata_inds]
-
             pid_frame_inds = np.array([metadata[i][4] for i in person_metadata_inds])
             clip_person_scores_dict[person_id][pid_frame_inds] = pid_scores
 

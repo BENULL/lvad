@@ -35,5 +35,11 @@ filename
     }
 }
 ```
+## segment dataset
+data_arr = [[batch_size, in_channels, seg_len, keypoints],
+             [transform_index],
+             [seg_metadata],
+             [index]
+            ]
 
-
+seg_metadata = [[scene, clip, person_id,start_key,end_key]]

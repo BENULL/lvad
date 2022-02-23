@@ -5,7 +5,9 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
+# from graph import Graph
 
+from models.agcn.kinetics import Graph
 
 def import_class(name):
     components = name.split('.')
@@ -131,22 +133,16 @@ class TCN_GCN_unit(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, in_channels=3, seq_len=12, graph=None, graph_args=dict()):
+    def __init__(self, in_channels=3, graph=None, graph_args=dict()):
         super(Model, self).__init__()
-
-        if graph is None:
-            raise ValueError()
-        else:
-            Graph = import_class(graph)
-            self.graph = Graph(**graph_args)
-
+        self.graph = Graph(**graph_args)
         A = self.graph.A
         self.in_channels = in_channels
-        self.seq_len = seq_len
+
         self.num_node = A.shape[1]
         self.data_bn = nn.BatchNorm1d(self.in_channels * self.num_node)
 
-        self.l1 = TCN_GCN_unit(3, 64, A, residual=False)
+        self.l1 = TCN_GCN_unit(self.in_channels, 64, A, residual=False)
         self.l2 = TCN_GCN_unit(64, 64, A)
         self.l3 = TCN_GCN_unit(64, 64, A)
         self.l4 = TCN_GCN_unit(64, 64, A)
@@ -157,11 +153,8 @@ class Model(nn.Module):
         self.l9 = TCN_GCN_unit(256, 256, A)
         self.l10 = TCN_GCN_unit(256, 256, A)
 
-        self.fc_in = 256*((self.seq_len-2)//4+1)*self.num_node
         self.fcn_out = self.num_node*in_channels
         self.fcn = nn.Conv2d(256, self.fcn_out, kernel_size=1)
-        # self.fc = nn.Linear(256, self.fc_out)
-        # nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / self.fc_out))
         bn_init(self.data_bn, 1)
 
     def forward(self, x):
@@ -209,7 +202,7 @@ class Model(nn.Module):
         return x
 
 if __name__ == '__main__':
-    model = Model(graph='graph.graph.Graph').cuda(0)
+    model = Model(in_channels=2, graph='graph.graph.Graph').cuda(0)
     print(model)
 
     # N, C, T, V
@@ -217,7 +210,7 @@ if __name__ == '__main__':
     # C：channels
     # T：Frames' Number
     # V：Joints‘ Number
-    data = torch.ones((2, 3, 12, 18))
+    data = torch.ones((2, 2, 12, 18))
     data = data.to(0)
     out = model(data)
     print(out)

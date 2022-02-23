@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 from models.agcn import Model as AGCN
 from models.stgcn import STGCN
 from models.stgcn import SS_STGCN
+from models.msg3d.msg3d import Model as MSG3D
 
 from utils.data_utils import trans_list
 from utils.optim_utils.optim_init import init_optimizer, init_scheduler
@@ -17,6 +18,7 @@ from utils.pose_seg_dataset import PoseSegDataset
 from utils.pose_ad_argparse import init_parser, init_sub_args
 from utils.scoring_utils import score_dataset
 from utils.train_utils import Trainer, csv_log_dump
+from visualization import visualizaion_predict_skeleton
 
 
 def main():
@@ -37,10 +39,15 @@ def main():
     print(args)
 
     dataset, loader = get_dataset_and_loader(args)
-
-    models_dict = {'agcn': AGCN(graph='graph.Graph', seq_len=args.seg_len,),
-                   'stgcn':STGCN(),
-                   'ss-stgcn':SS_STGCN()}
+    # load model
+    fn = vars(args).get('fn', None)
+    # if fn:
+    #     print(fn)
+    # else:
+    models_dict = {'agcn': AGCN(in_channels=args.in_channels),
+                   'stgcn': STGCN(in_channels=args.in_channels),
+                   'ss-stgcn': SS_STGCN(in_channels=args.in_channels),
+                   'msg3d': MSG3D(in_channels=args.in_channels)}
     # model = AGCN(graph='graph.Graph', seq_len=args.seg_len, )
     print(f'============{args.model}============')
     model = models_dict[args.model]
@@ -59,16 +66,17 @@ def main():
     output_arr, rec_loss_arr = trainer.test(args.epochs, ret_output=True, args=args)
 
     max_clip = 5 if args.debug else None
-    auc, shift, sigma = score_dataset(rec_loss_arr, loader['test'].dataset.metadata, max_clip=max_clip)
-    print(f'auc: {auc}')
+    auc, shift, sigma = score_dataset(rec_loss_arr, loader['test'].dataset.metadata, max_clip=max_clip, args=args)
 
     # max_clip = 5 if args.debug else None
     # auc, dp_shift, dp_sigma = score_dataset(dp_scores_tavg, metadata, max_clip=max_clip)
 
     # Logging and recording results
-    # print("Done with {} AuC for {} samples and {} trans".format(dp_auc, dp_scores_tavg.shape[0], args.num_transform));
-    # log_dict['auc'] = 100 * auc
+    print("Done with {} AuC for {} samples and {} trans".format(auc, len(loader['test'].dataset), args.num_transform))
+    log_dict['auc'] = 100 * auc
     csv_log_dump(args, log_dict)
+    res_npz_path = save_result_npz(args, output_arr, rec_loss_arr, auc)
+    visualizaion_predict_skeleton(res_npz_path)
 
 
 def get_dataset_and_loader(args):
@@ -77,7 +85,7 @@ def get_dataset_and_loader(args):
 
     dataset_args = {'transform_list': transform_list, 'debug': args.debug, 'headless': args.headless,
                     'scale': args.norm_scale, 'scale_proportional': args.prop_norm_scale, 'seg_len': args.seg_len,
-                    'return_indices': True, 'return_metadata': True}
+                    'return_indices': True, 'return_metadata': True, 'hr': args.hr}
 
     loader_args = {'batch_size': args.batch_size, 'num_workers': args.num_workers, 'pin_memory': True}
 
@@ -90,19 +98,12 @@ def get_dataset_and_loader(args):
     return dataset, loader
 
 
-def save_result_npz(args, scores, scores_tavg, metadata, sfmax_maxval, auc, dp_auc=None):
+def save_result_npz(args, output_arr, rec_loss_arr, auc):
     debug_str = '_debug' if args.debug else ''
-    auc_int = int(1000 * auc)
-    dp_auc_str = ''
-    if dp_auc is not None:
-        dp_auc_int = int(1000 * dp_auc)
-        dp_auc_str = '_dp{}'.format(dp_auc_int)
-    auc_str = '_{}'.format(auc_int)
-    res_fn = args.ae_fn.split('.')[0] + '_res{}{}{}.npz'.format(dp_auc_str, auc_str, debug_str)
+    res_fn = f'res_{int(auc*10000)}_{debug_str}.npz'
     res_path = os.path.join(args.ckpt_dir, res_fn)
-    np.savez(res_path, scores=scores, sfmax_maxval=sfmax_maxval, args=args, metadata=metadata,
-             scores_tavg=scores_tavg, dp_best=dp_auc)
-
+    np.savez(res_path, output_arr=output_arr, args=args, rec_loss_arr=rec_loss_arr)
+    return res_path
 
 if __name__ == '__main__':
     main()

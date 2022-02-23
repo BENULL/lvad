@@ -21,11 +21,10 @@ def init_sub_args(args):
     return args, res_args
 
 
-def init_parser(default_data_dir='data/', default_exp_dir='data/exp_dir'):
+def init_parser(default_data_dir='data/ShanghaiTech', default_exp_dir='data/exp_dir'):
     parser = argparse.ArgumentParser("Pose_AD_Experiment")
     # General Args
-    parser.add_argument('--model', type=str, default='agcn',
-                        help="Model used [agcn, stgcn] (default: 'agcn')")
+
     parser.add_argument('--debug', action='store_true',
                         help='Debug experiment script with minimal epochs. (default: False)')
     parser.add_argument('--device', type=str, default='cuda:0', metavar='DEV',
@@ -34,6 +33,9 @@ def init_parser(default_data_dir='data/', default_exp_dir='data/exp_dir'):
                         help='Random seed, use 999 for random (default: 999)')
     parser.add_argument('--verbose', type=int, default=1, metavar='V', choices=[0, 1],
                         help='Verbosity [1/0] (default: 1)')
+
+    parser.add_argument('--hr', action='store_true',
+                        help='Use human related dataset. (default: False)')
     parser.add_argument('--num_transform', type=int, default=5, metavar='T',
                         help='number of transformations to use for augmentation (default: 5)')
     parser.add_argument('--headless', action='store_true',
@@ -58,12 +60,18 @@ def init_parser(default_data_dir='data/', default_exp_dir='data/exp_dir'):
                         help='Number of frames for training segment sliding window, a multiply of 6 (default: 12)')
     parser.add_argument('--seg_stride', type=int, default=8, metavar='SGST',
                         help='Stride for training segment sliding window (default: 8)')
+
+    parser.add_argument('--model', type=str, default='agcn',
+                        help="Model used [agcn, stgcn] (default: 'agcn')")
+    parser.add_argument('--fn', type=str, metavar='FN',
+                        help="Path to a trained models to start with")
+
+    parser.add_argument('--in_channels', type=int, default=3,
+                        help='channels of model input (3=include confidence) (default: 3)')
     parser.add_argument('--alpha', '-a', type=float, default=1e-3, metavar='G',
                         help='Alpha value for weighting L2 regularization (default: 1e-3)')
     parser.add_argument('--gamma', '-g', type=float, default=0.6, metavar='G',
                         help='Gamma values for weighting loss (default: 0.6)')
-    parser.add_argument('--fn', type=str, metavar='FN',
-                        help="Path to a trained models to start with")
     parser.add_argument('--optimizer', '-o', type=str, default='adam', metavar='OPT',
                         help="Optimizer (default: 'adam')")
     parser.add_argument('--sched', '-s', type=str, default='tri', metavar='SCH',

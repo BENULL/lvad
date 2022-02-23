@@ -6,6 +6,7 @@ from utils.data_utils import normalize_pose
 
 from utils.segment_utils import gen_clip_seg_data_np
 
+HUMAN_IRRELATED_CLIPS = ['01_0130','01_0135','01_0136','06_0144','06_0145','12_0152']
 
 class PoseSegDataset(Dataset):
     """
@@ -94,6 +95,7 @@ def gen_dataset(person_json_root, num_clips=None, normalize_pose_segs=True,
     vid_res = dataset_args.get('vid_res', [856, 480])
     headless = dataset_args.get('headless', False)
     seg_conf_th = dataset_args.get('train_seg_conf_th', 0.0)
+    human_related = dataset_args.get('hr', False)
 
     dir_list = os.listdir(person_json_root)
     json_list = sorted([fn for fn in dir_list if fn.endswith('.json')])
@@ -101,6 +103,8 @@ def gen_dataset(person_json_root, num_clips=None, normalize_pose_segs=True,
         json_list = json_list[:num_clips]  # For debugging purposes
     for person_dict_fn in json_list:
         scene_id, clip_id = person_dict_fn.split('_')[:2]
+        if human_related and f'{scene_id}_{clip_id}' in HUMAN_IRRELATED_CLIPS:
+            continue
         clip_json_path = os.path.join(person_json_root, person_dict_fn)
         with open(clip_json_path, 'r') as f:
             clip_dict = json.load(f)
@@ -182,7 +186,7 @@ if __name__ == '__main__':
     dataset_args = {'transform_list': [], 'debug': True, 'headless': False, 'return_indices': True,
                     'return_metadata': True}
     loader_args = {'batch_size': 512, 'num_workers': 8, 'pin_memory': False}
-    poseDataset = PoseSegDataset('../data/pose/testing/tracked_person/', **dataset_args)
+    poseDataset = PoseSegDataset('../data/ShanghaiTech/pose/testing/tracked_person/', **dataset_args)
     loader = DataLoader(poseDataset, **loader_args, shuffle=False)
     print(len(loader.dataset))
 
