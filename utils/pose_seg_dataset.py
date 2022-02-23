@@ -39,8 +39,11 @@ class PoseSegDataset(Dataset):
         self.transform_list = transform_list
         self.seg_len = dataset_args.get('seg_len', 12)
         self.seg_stride = dataset_args.get('seg_stride', 1)
-        self.segs_data_np, self.segs_meta, self.person_keys = gen_dataset(path_to_json_dir, num_clips=num_clips,
-                                                                          ret_keys=True, **dataset_args)
+        # data process
+        self.segs_data_np, self.segs_meta, self.person_keys = gen_dataset(path_to_json_dir,
+                                                                          num_clips=num_clips,
+                                                                          ret_keys=True,
+                                                                          **dataset_args)
         # Convert person keys to ints
         self.person_keys = {k: [int(i) for i in v] for k, v in self.person_keys.items()}
         self.segs_meta = np.array(self.segs_meta)

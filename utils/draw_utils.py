@@ -12,6 +12,8 @@ import shutil
 import numpy as np
 import json
 import collections
+import time
+from tqdm import tqdm
 
 from utils.pose_seg_dataset import keypoints17_to_coco18
 
@@ -155,14 +157,9 @@ def draw_predict_skeleton( metas, output_arr, date_time):
 
     video_path = '/root/VAD/lvad/visualization/01_0014/'
     visualization_path = f'/root/VAD/lvad/visualization/{date_time}_01_0014_res/'
-    shutil.rmtree(visualization_path)
-    shutil.copytree(video_path, visualization_path)
 
-
-    # npz_path = './data/exp_dir/Feb22_1624/checkpoints/res_6595_.npz'
-    # data = np.load(npz_path, allow_pickle=True)
-    # args, output_arr, rec_loss_arr = data['args'].tolist(), data['output_arr'], data['rec_loss_arr']
-    # output = output_arr[0]
+    if not os.path.exists(visualization_path):
+        shutil.copytree(video_path, visualization_path)
 
     for predict, meta in zip(output_arr, metas):
         if meta[0] == 1 and meta[1] == 14:
@@ -170,14 +167,33 @@ def draw_predict_skeleton( metas, output_arr, date_time):
             # DRAW
             img_path = visualization_path + f'{img_idx:03d}.jpg'
             img = cv2.imread(img_path)
+            # TODO
             predict = predict.squeeze(1).T
             predict = (predict+1)/2
             renderPoseImage = renderPose(img, predict, inplace=False)
             cv2.imwrite(img_path, renderPoseImage)
 
+def draw_mask_skeleton(targets, predicts):
+    for target, predict in tqdm(zip(targets, predicts)):
+        mask_img = np.zeros((480, 856, 3), np.uint8)
+        mask_img.fill(255)
+        # TODO
+        predict = predict.squeeze(1).T
+        predict = (predict + 1) / 2
+        target = target.squeeze(1).T
+        target = (target + 1) / 2
+        RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_RED
+        RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_RED
+        mask_img = renderPose(mask_img, predict, inplace=False)
+        RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_BLUE
+        RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_BLUE
+        mask_img = renderPose(mask_img, target, inplace=False)
+        cv2.imwrite(f'/root/VAD/lvad/visualization/mask/{int(time.time()*10000)}.jpg', mask_img)
 
 
 
 if __name__ == '__main__':
     # draw_skeleton_on_ShanghaiTech()
-    draw_predict_skeleton()
+    # draw_predict_skeleton()
+
+    draw_mask_skeleton()

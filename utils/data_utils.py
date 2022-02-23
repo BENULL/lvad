@@ -71,7 +71,7 @@ def normalize_pose(pose_data, **kwargs):
     """
     vid_res = kwargs.get('vid_res', [856, 480])
     symm_range = kwargs.get('symm_range', True) # Means shift data to [-1, 1] range
-    sub_mean = kwargs.get('sub_mean', True)
+    sub_mean = kwargs.get('sub_mean', False)
     scale = kwargs.get('scale', False)
     scale_proportional = kwargs.get('scale_proportional', False)
 

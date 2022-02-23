@@ -88,6 +88,7 @@ class Trainer:
                 data = data_arr[0].to(args.device, non_blocking=True)
                 data, reco_data = data[:, :args.in_channels, :args.seg_len-1, :], data[:, :args.in_channels, args.seg_len-1, :].unsqueeze(2)
                 output = self.model(data)
+
                 reco_loss = self.loss(output, reco_data)
                 reg_loss = calc_reg_loss(self.model)
                 loss = reco_loss + 1e-3 * args.alpha * reg_loss

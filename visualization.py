@@ -10,7 +10,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from utils.data_utils import trans_list
-from utils.draw_utils import draw_predict_skeleton
+from utils.draw_utils import draw_predict_skeleton, draw_mask_skeleton
 from utils.pose_seg_dataset import PoseSegDataset
 
 
@@ -33,7 +33,10 @@ def visualizaion_predict_skeleton(res_npz_path):
 
     for itern, data_arr in enumerate(loader):
         metas = data_arr[2]
+        # data = data_arr[0]
         draw_predict_skeleton(metas, output_arr[itern],  date_time=args.ckpt_dir.split('/')[-3])
+        # draw_mask_skeleton(data[:, :args.in_channels, args.seg_len-1, :].unsqueeze(2), output_arr[itern])
+        # break
 
 
 if __name__ == '__main__':
