@@ -14,6 +14,7 @@ import json
 import collections
 import time
 from tqdm import tqdm
+from matplotlib import pyplot as plt
 
 from utils.pose_seg_dataset import keypoints17_to_coco18
 
@@ -132,9 +133,9 @@ def renderBbox(image, box, inplace: bool = True, inverseNormalization='auto'):
     return image
 
 def draw_skeleton_on_ShanghaiTech():
-    with open('/root/VAD/lvad/data/ShanghaiTech/pose/testing/tracked_person/01_0014_alphapose_tracked_person.json', 'r') as file:
+    with open('/root/VAD/lvad/data/ShanghaiTech/pose/testing/tracked_person/03_0033_alphapose_tracked_person.json', 'r') as file:
         skeleton_json = json.load(file)
-        visualization_path = '/root/VAD/lvad/visualization/01_0014/'
+        visualization_path = '/root/VAD/lvad/visualization/03_0033/'
         key_skeleton_dict = collections.defaultdict(list)
         for person_id, skeleton_dict in skeleton_json.items():
             for key, skeleton in skeleton_dict.items():
@@ -150,19 +151,19 @@ def draw_skeleton_on_ShanghaiTech():
 
 
 
-def draw_predict_skeleton( metas, output_arr, date_time):
+def draw_predict_skeleton( metas, output_arr, date_time, v_id):
 
     RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_RED
     RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_RED
 
-    video_path = '/root/VAD/lvad/visualization/01_0014/'
-    visualization_path = f'/root/VAD/lvad/visualization/{date_time}_01_0014_res/'
-
+    video_path = f'/root/VAD/lvad/visualization/{v_id}/'
+    visualization_path = f'/root/VAD/lvad/visualization/{date_time}_{v_id}_res/'
+    scene_id, clip_id = v_id.split('_')
     if not os.path.exists(visualization_path):
         shutil.copytree(video_path, visualization_path)
 
     for predict, meta in zip(output_arr, metas):
-        if meta[0] == 1 and meta[1] == 14:
+        if meta[0] == int(scene_id) and meta[1] == int(clip_id):
             img_idx = meta[4]
             # DRAW
             img_path = visualization_path + f'{img_idx:03d}.jpg'
@@ -191,9 +192,23 @@ def draw_mask_skeleton(targets, predicts):
         cv2.imwrite(f'/root/VAD/lvad/visualization/mask/{int(time.time()*10000)}.jpg', mask_img)
 
 
+def draw_anomaly_score_curve(score_arrs, meta_arrs, gt_arrs, aucs):
+    for scores, meta, gt_arr, auc in zip(score_arrs, meta_arrs, gt_arrs, aucs):
+        scene = f'{meta[0]:02d}_{meta[1]:04d}'
+        fig, ax = plt.subplots(figsize=(12, 4), dpi=100)
+        ax.set_xlabel('Frame Number')
+        ax.set_ylabel('Anomaly Score')
+        ax.text(-0.1, 0.95, f'Scene: {scene}')
+        ax.text(-0.1, 0.85, f'AUC: {auc:.4f}')
+        ax.set_yticks([0, 1])
+        ax.plot(np.arange(len(scores)), gt_arr, color='r', zorder=2)
+        ax.plot(np.arange(len(scores)), scores, color='b', zorder=1)
+        plt.savefig(f'/root/VAD/lvad/visualization/score_curve/{scene}_{int(auc*10000)}_{int(time.time())}.png')
+        plt.close()
 
 if __name__ == '__main__':
     # draw_skeleton_on_ShanghaiTech()
-    # draw_predict_skeleton()
+    draw_predict_skeleton()
 
-    draw_mask_skeleton()
+    # draw_mask_skeleton()
+    # draw_skeleton_on_ShanghaiTech()

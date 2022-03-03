@@ -60,49 +60,78 @@ trans_list = [
     PoseTransform(sx=1, sy=1, tx=0.0, ty=0, rot=45, flip=False),  # 12
 ]
 
+# def normalize_pose(pose_data, **kwargs):
+#     """
+#     Normalize keypoint values to the range of [-1, 1]
+#     :param pose_data: Formatted as [N, T, V, F], e.g. (Batch=64, Frames=12, 18, 3)
+#     :param vid_res:
+#     :param symm_range:
+#     :return:
+#     """
+#     vid_res = kwargs.get('vid_res', [856, 480])
+#     symm_range = kwargs.get('symm_range', True) # Means shift data to [-1, 1] range
+#     sub_mean = kwargs.get('sub_mean', False)
+#     scale = kwargs.get('scale', False)
+#     scale_proportional = kwargs.get('scale_proportional', False)
+#
+#     vid_res_wconf = vid_res + [1]
+#     norm_factor = np.array(vid_res_wconf)
+#     pose_data_normalized = pose_data / norm_factor
+#     pose_data_centered = pose_data_normalized
+#
+#     if symm_range:  # Means shift data to [-1, 1] range
+#         pose_data_centered[..., :2] = 2 * pose_data_centered[..., :2] - 1
+#
+#     pose_data_zero_mean = pose_data_centered
+#     if sub_mean or scale or scale_proportional:  # Inner frame scaling requires mean subtraction
+#         # pose_data_zero_mean = pose_data_centered
+#         mean_kp_val = np.mean(pose_data_zero_mean[..., :2], (1, 2))
+#         pose_data_zero_mean[..., :2] -= mean_kp_val[:, None, None, :]
+#
+#     max_kp_xy = np.max(np.abs(pose_data_centered[..., :2]), axis=(1, 2))
+#     max_kp_coord = max_kp_xy.max(axis=1)
+#
+#     pose_data_scaled = pose_data_zero_mean
+#     if scale:
+#         # Scale sequence to maximize the [-1,1] frame
+#         # Removes average position from all keypoints, than scales in x and y to fill the frame
+#         # Loses body proportions
+#         pose_data_scaled[..., :2] = pose_data_scaled[..., :2] / max_kp_xy[:, None, None, :]
+#
+#     elif scale_proportional:
+#         # Same as scale but normalizes by the same factor
+#         # (smaller axis, i.e. divides by larger fraction value)
+#         # Keeps propotions
+#         pose_data_scaled[..., :2] = pose_data_scaled[..., :2] / max_kp_coord[:, None, None, None]
+#
+#     return pose_data_scaled
 
 def normalize_pose(pose_data, **kwargs):
     """
-    Normalize keypoint values to the range of [-1, 1]
+    Normalize keypoint values by bounding box
     :param pose_data: Formatted as [N, T, V, F], e.g. (Batch=64, Frames=12, 18, 3)
-    :param vid_res:
-    :param symm_range:
     :return:
     """
-    vid_res = kwargs.get('vid_res', [856, 480])
-    symm_range = kwargs.get('symm_range', True) # Means shift data to [-1, 1] range
-    sub_mean = kwargs.get('sub_mean', False)
-    scale = kwargs.get('scale', False)
-    scale_proportional = kwargs.get('scale_proportional', False)
+    pose_xy_local = pose_data
+    max_kp_xy = np.max(np.abs(pose_data[..., :2]), axis=(1, 2))
+    min_kp_xy = np.min(np.abs(pose_data[..., :2]), axis=(1, 2))
+    xy_global = (max_kp_xy + min_kp_xy) / 2
+    bounding_box_wh = max_kp_xy - min_kp_xy
+    pose_xy_local[..., :2] = (pose_data[..., :2] - xy_global[:, None, None, :]) / bounding_box_wh[:, None, None, :]
+    return pose_xy_local
 
-    vid_res_wconf = vid_res + [1]
-    norm_factor = np.array(vid_res_wconf)
-    pose_data_normalized = pose_data / norm_factor
-    pose_data_centered = pose_data_normalized
-    if symm_range:  # Means shift data to [-1, 1] range
-        pose_data_centered[..., :2] = 2 * pose_data_centered[..., :2] - 1
+def re_normalize_pose(normalized_pose, origin_pose):
+    """
 
-    pose_data_zero_mean = pose_data_centered
-    if sub_mean or scale or scale_proportional:  # Inner frame scaling requires mean subtraction
-        # pose_data_zero_mean = pose_data_centered
-        mean_kp_val = np.mean(pose_data_zero_mean[..., :2], (1, 2))
-        pose_data_zero_mean[..., :2] -= mean_kp_val[:, None, None, :]
-
-    max_kp_xy = np.max(np.abs(pose_data_centered[..., :2]), axis=(1, 2))
-    max_kp_coord = max_kp_xy.max(axis=1)
-
-    pose_data_scaled = pose_data_zero_mean
-    if scale:
-        # Scale sequence to maximize the [-1,1] frame
-        # Removes average position from all keypoints, than scales in x and y to fill the frame
-        # Loses body proportions
-        pose_data_scaled[..., :2] = pose_data_scaled[..., :2] / max_kp_xy[:, None, None, :]
-
-    elif scale_proportional:
-        # Same as scale but normalizes by the same factor
-        # (smaller axis, i.e. divides by larger fraction value)
-        # Keeps propotions
-        pose_data_scaled[..., :2] = pose_data_scaled[..., :2] / max_kp_coord[:, None, None, None]
-
-    return pose_data_scaled
-
+    :param normalized_pose: [18, 3]
+    :return:
+    """
+    re_normalized_pose = normalized_pose
+    # max_kp_xy = np.max(np.abs(origin_pose[..., :2]), axis=0)
+    # min_kp_xy = np.min(np.abs(origin_pose[..., :2]), axis=0)
+    # xy_global = (max_kp_xy + min_kp_xy) / 2
+    # bounding_box_wh = max_kp_xy - min_kp_xy
+    # ormalized_pose*bounding_box_wh+xy_globaln
+    # pose_xy_local[..., :2] = (pose_data[..., :2] - xy_global[:, None, None, :]) / bounding_box_wh[:, None, None, :]
+    # return pose_xy_local
+    pass

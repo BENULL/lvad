@@ -6,12 +6,45 @@ from sklearn.metrics import roc_auc_score
 from torch.utils.data import DataLoader
 from sklearn import mixture
 from joblib import dump, load
+
+from utils.draw_utils import draw_anomaly_score_curve
 from utils.pose_seg_dataset import HUMAN_IRRELATED_CLIPS
 
 
+def cal_clip_roc_auc(gt_arr, scores_arr):
+    auc_arr = []
+    for gt, scores in zip(gt_arr, scores_arr):
+        try:
+            auc_arr.append(roc_auc_score(gt, scores))
+        except ValueError:
+            auc_arr.append(0)
+    return auc_arr
+
+def normalized_scores_arr(score_arrs):
+    score_arrs_normalized = []
+    for scores in score_arrs:
+        score_max = np.max(scores, axis=0)
+        score_normalized = (scores / score_max) * 0.9
+        score_arrs_normalized.append(score_normalized)
+    return score_arrs_normalized
+
+
 def score_dataset(score_vals, metadata, max_clip=None, scene_id=None, args=None):
-    score_vals = np.array(score_vals)
+    score_vals = np.array(score_vals)  # [samples, ]
     gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores(score_vals, metadata, max_clip, scene_id, args)
+
+    # smooth
+    scores_np = np.concatenate(scores_arr)
+    scores_smoothed = gaussian_filter1d(scores_np, 40)
+    scores_smoothed_arr = []
+    frame_start = 0
+    for i in range(len(scores_arr)):
+        scores_smoothed_arr.append(scores_smoothed[frame_start:frame_start + len(scores_arr[i])])
+        frame_start += len(scores_arr[i])
+
+    # TODO draw score curve
+    normalized_scores = normalized_scores_arr(scores_smoothed_arr)
+    draw_anomaly_score_curve(normalized_scores, metadata_arr, gt_arr, cal_clip_roc_auc(gt_arr, scores_smoothed_arr))
     gt_np = np.concatenate(gt_arr)
     scores_np = np.concatenate(scores_arr)
     auc, shift, sigma = score_align(scores_np, gt_np)
@@ -19,6 +52,15 @@ def score_dataset(score_vals, metadata, max_clip=None, scene_id=None, args=None)
 
 
 def get_dataset_scores(scores, metadata, max_clip=None, scene_id=None, args=None):
+    """
+
+    :param scores: [samples, ]
+    :param metadata: [samples, 5] scene_id, clip_id, person_id, start_frame_idx, end_frame_idx
+    :param max_clip:
+    :param scene_id:
+    :param args:
+    :return:
+    """
     dataset_gt_arr = []
     dataset_scores_arr = []
     dataset_metadata_arr = []
@@ -34,6 +76,7 @@ def get_dataset_scores(scores, metadata, max_clip=None, scene_id=None, args=None
         max_clip = min(max_clip, len(clip_list))
         clip_list = clip_list[:max_clip]
     print("Scoring {} clips".format(len(clip_list)))
+    # calculate per clip
     for clip in clip_list:
         scene_id, clip_id = clip.split('.')[0].split('_')
         if args.hr and f'{scene_id}_{clip_id}' in HUMAN_IRRELATED_CLIPS:
@@ -41,12 +84,13 @@ def get_dataset_scores(scores, metadata, max_clip=None, scene_id=None, args=None
         clip_res_fn = os.path.join(per_frame_scores_root, clip)
         clip_gt = np.load(clip_res_fn)
         scene_id, clip_id = int(scene_id), int(clip_id)
+        # find the sample index of the clip
         clip_metadata_inds = np.where((metadata_np[:, 1] == clip_id) &
                                       (metadata_np[:, 0] == scene_id))[0]
         clip_metadata = metadata[clip_metadata_inds]
-        # person_idxs
+        # person_idxs set (person in clip)
         clip_fig_idxs = set([arr[2] for arr in clip_metadata])
-        scores_zeros = np.zeros(clip_gt.shape[0])
+        scores_zeros = np.zeros(clip_gt.shape[0])  # [clip frames, ]
         clip_person_scores_dict = {i: np.copy(scores_zeros) for i in clip_fig_idxs}
         for person_id in clip_fig_idxs:
             person_metadata_inds = np.where((metadata_np[:, 1] == clip_id) &
@@ -56,7 +100,7 @@ def get_dataset_scores(scores, metadata, max_clip=None, scene_id=None, args=None
             pid_frame_inds = np.array([metadata[i][4] for i in person_metadata_inds])
             clip_person_scores_dict[person_id][pid_frame_inds] = pid_scores
 
-        clip_ppl_score_arr = np.stack(list(clip_person_scores_dict.values()))
+        clip_ppl_score_arr = np.stack(list(clip_person_scores_dict.values()))  # [persons, frames_score]
         clip_score = np.amax(clip_ppl_score_arr, axis=0)
         fig_score_id = [list(clip_fig_idxs)[i] for i in np.argmax(clip_ppl_score_arr, axis=0)]
         dataset_gt_arr.append(clip_gt)
@@ -67,12 +111,13 @@ def get_dataset_scores(scores, metadata, max_clip=None, scene_id=None, args=None
 
 
 def score_align(scores_np, gt, seg_len=12, sigma=40):
+    # TODO score shift
     # scores_shifted = np.zeros_like(scores_np)
     shift = seg_len + (seg_len // 2) - 1
     # scores_shifted[shift:] = scores_np[:-shift]
 
-    # scores_smoothed = gaussian_filter1d(scores_np, sigma)
-    auc = roc_auc_score(gt, scores_np)
+    scores_smoothed = gaussian_filter1d(scores_np, sigma)
+    auc = roc_auc_score(gt, scores_smoothed)
     return auc, shift, sigma
 
 
