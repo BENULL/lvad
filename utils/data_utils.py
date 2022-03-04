@@ -106,32 +106,37 @@ trans_list = [
 #
 #     return pose_data_scaled
 
-def normalize_pose(pose_data, **kwargs):
+def normalize_pose(pose_data, segs_meta, **kwargs):
     """
     Normalize keypoint values by bounding box
     :param pose_data: Formatted as [N, T, V, F], e.g. (Batch=64, Frames=12, 18, 3)
     :return:
     """
     pose_xy_local = pose_data
-    max_kp_xy = np.max(np.abs(pose_data[..., :2]), axis=(1, 2))
+    max_kp_xy = np.max(np.abs(pose_data[..., :2]), axis=(1, 2))  # TODO [N, 2] max x,y in sample with T frame
     min_kp_xy = np.min(np.abs(pose_data[..., :2]), axis=(1, 2))
     xy_global = (max_kp_xy + min_kp_xy) / 2
     bounding_box_wh = max_kp_xy - min_kp_xy
-    pose_xy_local[..., :2] = (pose_data[..., :2] - xy_global[:, None, None, :]) / bounding_box_wh[:, None, None, :]
-    return pose_xy_local
 
-def re_normalize_pose(normalized_pose, origin_pose):
+    xy_global = xy_global.astype(int)
+    bounding_box_wh = bounding_box_wh.astype(int)
+    pose_xy_local[..., :2] = (pose_data[..., :2] - xy_global[:, None, None, :]) / bounding_box_wh[:, None, None, :]
+
+    # segs_meta add [x_g, y_g, w, h]
+    segs_meta = np.concatenate((segs_meta, xy_global, bounding_box_wh), axis=1)
+    return pose_xy_local, segs_meta
+
+def re_normalize_pose(normalized_pose, meta):
     """
 
     :param normalized_pose: [18, 3]
+    :param meta: [x_g, y_g, w, h]
     :return:
     """
     re_normalized_pose = normalized_pose
-    # max_kp_xy = np.max(np.abs(origin_pose[..., :2]), axis=0)
-    # min_kp_xy = np.min(np.abs(origin_pose[..., :2]), axis=0)
-    # xy_global = (max_kp_xy + min_kp_xy) / 2
-    # bounding_box_wh = max_kp_xy - min_kp_xy
-    # ormalized_pose*bounding_box_wh+xy_globaln
-    # pose_xy_local[..., :2] = (pose_data[..., :2] - xy_global[:, None, None, :]) / bounding_box_wh[:, None, None, :]
-    # return pose_xy_local
-    pass
+
+    xy_global = np.array(meta[:2])
+    bounding_box_wh = np.array(meta[2:])
+
+    re_normalized_pose[..., :2] = normalized_pose[..., :2] * bounding_box_wh + xy_global
+    return re_normalized_pose

@@ -16,6 +16,7 @@ import time
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 
+from utils.data_utils import re_normalize_pose
 from utils.pose_seg_dataset import keypoints17_to_coco18
 
 _OPENPOSE_POINT_COLORS = [
@@ -55,7 +56,7 @@ RENDER_CONFIG_OPENPOSE = {
     'edges': _OPENPOSE_EDGES,
     'edgeColors': _OPENPOSE_EDGE_COLORS_BLUE,
     'edgeWidth': 1,
-    'pointColors': _OPENPOSE_POINT_COLORS_BLUE ,
+    'pointColors': _OPENPOSE_POINT_COLORS_BLUE,
     'pointRadius': 2
 }
 
@@ -95,10 +96,6 @@ def renderPose(image, poses, inplace: bool = True, inverseNormalization='auto'):
 
     if len(poses.shape) == 2:
         poses = poses[None, :, :2]
-
-    # symm_range
-    # poses = (poses+1) / 2
-
 
     if inverseNormalization not in ['auto', True, False]:
         raise ValueError(f'Unknown "inverseNormalization" value {inverseNormalization}')
@@ -168,9 +165,11 @@ def draw_predict_skeleton( metas, output_arr, date_time, v_id):
             # DRAW
             img_path = visualization_path + f'{img_idx:03d}.jpg'
             img = cv2.imread(img_path)
-            # TODO
+
+            # renormalize
             predict = predict.squeeze(1).T
-            predict = (predict+1)/2
+            predict = re_normalize_pose(predict, meta[5:])
+
             renderPoseImage = renderPose(img, predict, inplace=False)
             cv2.imwrite(img_path, renderPoseImage)
 
@@ -178,11 +177,13 @@ def draw_mask_skeleton(targets, predicts):
     for target, predict in tqdm(zip(targets, predicts)):
         mask_img = np.zeros((480, 856, 3), np.uint8)
         mask_img.fill(255)
-        # TODO
-        predict = predict.squeeze(1).T
-        predict = (predict + 1) / 2
-        target = target.squeeze(1).T
-        target = (target + 1) / 2
+
+        # TODO renormalize
+        # predict = predict.squeeze(1).T
+        # predict = (predict + 1) / 2
+        # target = target.squeeze(1).T
+        # target = (target + 1) / 2
+
         RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_RED
         RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_RED
         mask_img = renderPose(mask_img, predict, inplace=False)

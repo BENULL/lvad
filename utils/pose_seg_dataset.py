@@ -120,7 +120,7 @@ def gen_dataset(person_json_root, num_clips=None, normalize_pose_segs=True,
     segs_data_np = np.concatenate(segs_data_np, axis=0)
 
     if normalize_pose_segs:
-        segs_data_np = normalize_pose(segs_data_np, vid_res=vid_res, **dataset_args)
+        segs_data_np, segs_meta = normalize_pose(segs_data_np, segs_meta, vid_res=vid_res, **dataset_args)
     if kp18_format and segs_data_np.shape[-2] == 17:
         segs_data_np = keypoints17_to_coco18(segs_data_np)
     if headless:
