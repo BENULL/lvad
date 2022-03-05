@@ -23,6 +23,7 @@ from graph import tools
 # {17, "LEar"},
 
 # Edge format: (origin, neighbor)
+
 num_node = 18
 self_link = [(i, i) for i in range(num_node)]
 inward = [(4, 3), (3, 2), (7, 6), (6, 5), (13, 12), (12, 11), (10, 9), (9, 8),
@@ -33,19 +34,19 @@ neighbor = inward + outward
 
 
 class Graph:
-    def __init__(self, labeling_mode='spatial'):
-        self.A = self.get_adjacency_matrix(labeling_mode)
-        self.num_node = num_node
+    def __init__(self, labeling_mode='spatial', headless=False):
+        self.num_node = num_node if not headless else 14
         self.self_link = self_link
         self.inward = inward
         self.outward = outward
         self.neighbor = neighbor
+        self.A = self.get_adjacency_matrix(labeling_mode)
 
     def get_adjacency_matrix(self, labeling_mode=None):
         if labeling_mode is None:
             return self.A
         if labeling_mode == 'spatial':
-            A = tools.get_spatial_graph(num_node, self_link, inward, outward)
+            A = tools.get_spatial_graph(self.num_node, self.self_link, self.inward, self.outward)
         else:
             raise ValueError()
         return A

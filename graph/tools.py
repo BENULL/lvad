@@ -3,7 +3,7 @@ import numpy as np
 
 def edge2mat(link, num_node):
     A = np.zeros((num_node, num_node))
-    for i, j in link:
+    for i, j in link[:num_node-1]:
         A[j, i] = 1
     return A
 

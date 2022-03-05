@@ -133,9 +133,9 @@ class TCN_GCN_unit(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, in_channels=3, graph=None, graph_args=dict()):
+    def __init__(self, in_channels=3, headless=False):
         super(Model, self).__init__()
-        self.graph = Graph(**graph_args)
+        self.graph = Graph(headless=headless)
         A = self.graph.A
         self.in_channels = in_channels
 

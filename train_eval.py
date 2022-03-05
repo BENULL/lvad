@@ -44,7 +44,7 @@ def main():
     # if fn:
     #     print(fn)
     # else:
-    models_dict = {'agcn': AGCN(in_channels=args.in_channels),
+    models_dict = {'agcn': AGCN(in_channels=args.in_channels, headless=args.headless),
                    'stgcn': STGCN(in_channels=args.in_channels),
                    'ss-stgcn': SS_STGCN(in_channels=args.in_channels),
                    'msg3d': MSG3D(in_channels=args.in_channels)}
