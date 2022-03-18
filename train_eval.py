@@ -20,6 +20,8 @@ from utils.scoring_utils import score_dataset
 from utils.train_utils import Trainer, csv_log_dump
 from visualization import visualizaion_predict_skeleton
 
+from models.lvad import LVAD
+from models.lvad import LVAD_CONBINE
 
 def main():
     parser = init_parser()
@@ -39,19 +41,28 @@ def main():
     print(args)
 
     dataset, loader = get_dataset_and_loader(args)
+
     # load model
     fn = vars(args).get('fn', None)
     # if fn:
     #     print(fn)
     # else:
+
     models_dict = {'agcn': AGCN(in_channels=args.in_channels, headless=args.headless),
                    'stgcn': STGCN(in_channels=args.in_channels),
                    'ss-stgcn': SS_STGCN(in_channels=args.in_channels),
                    'msg3d': MSG3D(in_channels=args.in_channels)}
+
+
     # model = AGCN(graph='graph.Graph', seq_len=args.seg_len, )
+
+
     print(f'============{args.model}============')
-    model = models_dict[args.model]
-    loss = nn.MSELoss()
+    # model = models_dict[args.model]
+
+    # model = LVAD(args)
+    model = LVAD_CONBINE(args)
+    loss = nn.MSELoss(reduction='none')
 
     optimizer_f = init_optimizer(args.optimizer, lr=args.lr)
     scheduler_f = init_scheduler(args.sched, lr=args.lr, epochs=args.epochs)
@@ -66,15 +77,14 @@ def main():
     output_arr, rec_loss_arr = trainer.test(args.epochs, ret_output=True, args=args)
 
     max_clip = 5 if args.debug else None
-    auc, shift, sigma = score_dataset(rec_loss_arr, loader['test'].dataset.metadata, max_clip=max_clip, args=args)
 
-    # max_clip = 5 if args.debug else None
-    # auc, dp_shift, dp_sigma = score_dataset(dp_scores_tavg, metadata, max_clip=max_clip)
+    auc, shift, sigma = score_dataset(rec_loss_arr, loader['test'].dataset.metadata, loader['test'].dataset.person_keys, max_clip=max_clip, args=args)
 
     # Logging and recording results
     print("Done with {} AuC for {} samples and {} trans".format(auc, len(loader['test'].dataset), args.num_transform))
     log_dict['auc'] = 100 * auc
-    csv_log_dump(args, log_dict)
+
+    # csv_log_dump(args, log_dict)
     res_npz_path = save_result_npz(args, output_arr, rec_loss_arr, auc)
     visualizaion_predict_skeleton(res_npz_path)
 

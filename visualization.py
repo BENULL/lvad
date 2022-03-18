@@ -33,11 +33,16 @@ def visualizaion_predict_skeleton(res_npz_path):
 
     for itern, data_arr in enumerate(loader):
         metas = data_arr[2]
-        # data = data_arr[0]
-        draw_predict_skeleton(metas, output_arr[itern],  date_time=args.ckpt_dir.split('/')[-3], v_id='01_0014')
-        draw_predict_skeleton(metas, output_arr[itern], date_time=args.ckpt_dir.split('/')[-3], v_id='03_0033')
+        data = data_arr[0]
+
+        # draw_predict_skeleton(metas, output_arr[itern],  date_time=args.ckpt_dir.split('/')[-3], v_id='01_0014')
+        # draw_predict_skeleton(metas, output_arr[itern], date_time=args.ckpt_dir.split('/')[-3], v_id='03_0033')
+
 
         # draw_mask_skeleton(data[:, :args.in_channels, args.seg_len-1, :].unsqueeze(2), output_arr[itern])
+
+        draw_mask_skeleton(data, output_arr[itern], metas, args.ckpt_dir.split('/')[2])
+
         # break
 
 
