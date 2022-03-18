@@ -173,27 +173,48 @@ def draw_predict_skeleton( metas, output_arr, date_time, v_id):
             renderPoseImage = renderPose(img, predict, inplace=False)
             cv2.imwrite(img_path, renderPoseImage)
 
-def draw_mask_skeleton(targets, predicts):
-    for target, predict in tqdm(zip(targets, predicts)):
-        mask_img = np.zeros((480, 856, 3), np.uint8)
-        mask_img.fill(255)
 
-        # TODO renormalize
+def draw_mask_skeleton(targets, predicts, metas, dir):
+    dir = f'/root/VAD/lvad/visualization/mask/{dir}'
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+
+    for target_b, predict_b, meta in zip(targets, predicts, metas):
+
         # predict = predict.squeeze(1).T
         # predict = (predict + 1) / 2
         # target = target.squeeze(1).T
         # target = (target + 1) / 2
+        scene_id, clip_id, person_id = meta[:3]
+        if scene_id != 1 or clip_id != 14:
+            continue
 
-        RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_RED
-        RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_RED
-        mask_img = renderPose(mask_img, predict, inplace=False)
-        RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_BLUE
-        RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_BLUE
-        mask_img = renderPose(mask_img, target, inplace=False)
-        cv2.imwrite(f'/root/VAD/lvad/visualization/mask/{int(time.time()*10000)}.jpg', mask_img)
+        mask_imgs = []
+        target_b = np.transpose(target_b.numpy(), (1,2,0))
+        predict_b = np.transpose(predict_b, (1,2,0))
+
+        for target, predict in zip(target_b, predict_b):
+            mask_img = np.zeros((480, 856, 3), np.uint8)
+            mask_img.fill(255)
+
+            target = re_normalize_pose(target, meta[5:])
+            predict = re_normalize_pose(predict, meta[5:])
+
+            RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_RED
+            RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_RED
+            mask_img = renderPose(mask_img, predict, inplace=False)
+            RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_BLUE
+            RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_BLUE
+            mask_img = renderPose(mask_img, target, inplace=False)
+            mask_imgs.append(mask_img)
+        mask_imgs = np.concatenate(mask_imgs, axis=0)
+        cv2.imwrite(f'{dir}/{scene_id}-{clip_id}-{person_id}-{int(time.time()*10000)}.jpg', mask_imgs)
 
 
-def draw_anomaly_score_curve(score_arrs, meta_arrs, gt_arrs, aucs):
+def draw_anomaly_score_curve(score_arrs, meta_arrs, gt_arrs, aucs, dir):
+    dir = f'/root/VAD/lvad/visualization/score_curve/{dir}'
+    if not os.path.exists(dir):
+        os.makedirs(dir)
     for scores, meta, gt_arr, auc in zip(score_arrs, meta_arrs, gt_arrs, aucs):
         scene = f'{meta[0]:02d}_{meta[1]:04d}'
         fig, ax = plt.subplots(figsize=(12, 4), dpi=100)
@@ -204,7 +225,7 @@ def draw_anomaly_score_curve(score_arrs, meta_arrs, gt_arrs, aucs):
         ax.set_yticks([0, 1])
         ax.plot(np.arange(len(scores)), gt_arr, color='r', zorder=2)
         ax.plot(np.arange(len(scores)), scores, color='b', zorder=1)
-        plt.savefig(f'/root/VAD/lvad/visualization/score_curve/{scene}_{int(auc*10000)}_{int(time.time())}.png')
+        plt.savefig(f'{dir}/{scene}_{int(auc*10000)}_{int(time.time())}.png')
         plt.close()
 
 if __name__ == '__main__':

@@ -90,6 +90,8 @@ def init_parser(default_data_dir='data/ShanghaiTech', default_exp_dir='data/exp_
                         help='Batch sizes. (default: 512)')
 
     # Scoring
+    parser.add_argument('--sigma', type=int, default=40,
+                        help='sigma for guassian filter (default: 40)')
     parser.add_argument('--save_results', type=int, default=1, metavar='SR', choices=[0, 1],
                         help='Save results to npz (default: 1)')   #
     parser.add_argument('--res_batch_size', '-res_b', type=int, default=256,  metavar='B',
