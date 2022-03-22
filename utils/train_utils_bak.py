@@ -1,6 +1,5 @@
 import os
 import torch
-import torch.nn as nn
 import numpy as np
 import torch.optim as optim
 import time
@@ -19,9 +18,6 @@ class Trainer:
         self.test_loader = test_loader
         # Loss, Optimizer and Scheduler
         self.loss = loss
-
-        # self.ms_loss = nn.MSELoss()
-
         if optimizer_f is None:
             self.optimizer = self.get_optimizer()
         else:
@@ -90,20 +86,10 @@ class Trainer:
             print("Started epoch {}".format(epoch))
             for itern, data_arr in enumerate(tqdm(self.train_loader)):
                 data = data_arr[0].to(args.device, non_blocking=True)
-                rec_out, pre_out = self.model(data)
+                data, reco_data = data[:, :args.in_channels, :args.seg_len-1, :], data[:, :args.in_channels, args.seg_len-1, :].unsqueeze(2)
+                output = self.model(data)
 
-                rec_out = torch.flip(rec_out, dims=[2])
-
-                reconstruct_loss = self.loss(rec_out, data)
-                predict_loss = self.loss(pre_out, data[:, :, 6:, :])
-
-                # reco_loss = self.loss(output, data)  # [N, C, T, V]
-
-                reconstruct_loss = torch.mean(reconstruct_loss)
-                predict_loss = torch.mean(predict_loss)
-                # reco_loss = 0.3*reconstruct_loss + 0.7*predict_loss
-                reco_loss = 0.1*reconstruct_loss + 0.9*predict_loss
-
+                reco_loss = self.loss(output, reco_data)
                 reg_loss = calc_reg_loss(self.model)
                 loss = reco_loss + 1e-3 * args.alpha * reg_loss
                 loss.backward()
@@ -118,8 +104,8 @@ class Trainer:
 
             self.save_checkpoint(epoch, args=args, filename=checkpoint_filename)
 
-            if (epoch+1) % args.test_every == 0:
-                self._test(epoch, self.test_loader, ret_output=False, log=False, args=args)
+            # print(f"-------loss_list_len-------: {len(loss_list)}")
+            # print(f"-------tran_dataset_len-------: {len(self.train_loader.dataset)}")
 
         return checkpoint_filename, np.mean(loss_list)
 
@@ -136,40 +122,26 @@ class Trainer:
         print("Testing")
         self.model.eval()
         output_arr = []
-        ret_reco_loss_arr = []
-        reco_loss_arr = []
+        rec_loss_arr = []
         for itern, data_arr in enumerate(test_loader):
             with torch.no_grad():
                 data = data_arr[0].to(args.device)
-                # data, reco_data = data[:, :args.in_channels, :args.seg_len-1, :], data[:, :args.in_channels, args.seg_len-1, :].unsqueeze(2)
-                rec_out, pre_out = self.model(data)
+                data, reco_data = data[:, :args.in_channels, :args.seg_len-1, :], data[:, :args.in_channels, args.seg_len-1, :].unsqueeze(2)
+                output = self.model(data)
 
-                rec_out = torch.flip(rec_out, dims=[2])
-                if ret_output:
-                    output_sfmax = torch.cat((rec_out, pre_out), dim=2)
-                    output_arr.append(output_sfmax.detach().cpu().numpy())
-                    del output_sfmax
+            if ret_output:
+                output_sfmax = output
+                output_arr.append(output_sfmax.detach().cpu().numpy())
+                del output_sfmax
 
-                for origin, reco, pred in zip(data, rec_out, pre_out):
-                    rec_loss = self.loss(origin, reco)
-                    pred_loss = self.loss(origin[:, 6:, :], pred)
-
-                    ret_rec_loss = torch.mean(rec_loss, (0, 2))
-                    ret_pred_loss = torch.mean(pred_loss, (0, 2))
-                    ret_rec_loss[6:] = 0.1*ret_rec_loss[6:] + 0.9*ret_pred_loss
-
-                    ret_reco_loss_arr.append(ret_rec_loss.cpu().numpy())
-
-                reco_loss = self.loss(rec_out, data)
-                reco_loss = torch.mean(reco_loss)
-                reco_loss_arr.append(reco_loss.item())
-
-        test_loss = np.mean(reco_loss_arr)
-
+            for origin, reco in zip(output, reco_data):
+                rec_loss = self.loss(origin, reco)
+                rec_loss_arr.append(rec_loss.item())
+        test_loss = sum(rec_loss_arr)/len(test_loader.dataset)
         print("--> Test set loss {:.7f}".format(test_loss))
         self.model.train()
         if ret_output:
-            return output_arr, ret_reco_loss_arr
+            return output_arr, rec_loss_arr
 
 
 def calc_reg_loss(model, reg_type='l2', avg=True):

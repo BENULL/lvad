@@ -90,19 +90,13 @@ class Trainer:
             print("Started epoch {}".format(epoch))
             for itern, data_arr in enumerate(tqdm(self.train_loader)):
                 data = data_arr[0].to(args.device, non_blocking=True)
-                rec_out, pre_out = self.model(data)
+                # data, reco_data = data[:, :args.in_channels, :args.seg_len-1, :], data[:, :args.in_channels, args.seg_len-1, :].unsqueeze(2)
+                output = self.model(data)
+                output = torch.flip(output, dims=[2])
 
-                rec_out = torch.flip(rec_out, dims=[2])
-
-                reconstruct_loss = self.loss(rec_out, data)
-                predict_loss = self.loss(pre_out, data[:, :, 6:, :])
-
-                # reco_loss = self.loss(output, data)  # [N, C, T, V]
-
-                reconstruct_loss = torch.mean(reconstruct_loss)
-                predict_loss = torch.mean(predict_loss)
-                # reco_loss = 0.3*reconstruct_loss + 0.7*predict_loss
-                reco_loss = 0.1*reconstruct_loss + 0.9*predict_loss
+                reco_loss = self.loss(output, data)  # [N, C, T, V]
+                reco_loss = torch.mean(reco_loss)
+                # reco_loss = self.ms_loss(output, data)
 
                 reg_loss = calc_reg_loss(self.model)
                 loss = reco_loss + 1e-3 * args.alpha * reg_loss
@@ -142,27 +136,31 @@ class Trainer:
             with torch.no_grad():
                 data = data_arr[0].to(args.device)
                 # data, reco_data = data[:, :args.in_channels, :args.seg_len-1, :], data[:, :args.in_channels, args.seg_len-1, :].unsqueeze(2)
-                rec_out, pre_out = self.model(data)
+                output = self.model(data)
 
-                rec_out = torch.flip(rec_out, dims=[2])
-                if ret_output:
-                    output_sfmax = torch.cat((rec_out, pre_out), dim=2)
-                    output_arr.append(output_sfmax.detach().cpu().numpy())
-                    del output_sfmax
+            output = torch.flip(output, dims=[2])
+            if ret_output:
+                output_sfmax = output
+                output_arr.append(output_sfmax.detach().cpu().numpy())
+                del output_sfmax
 
-                for origin, reco, pred in zip(data, rec_out, pre_out):
-                    rec_loss = self.loss(origin, reco)
-                    pred_loss = self.loss(origin[:, 6:, :], pred)
+            for origin, reco in zip(output, data):
+            # for origin, reco in zip(output, data):
+                rec_loss = self.loss(origin, reco)
+                ret_rec_loss = torch.mean(rec_loss, (0, 2))
+                ret_reco_loss_arr.append(ret_rec_loss.cpu().numpy())
 
-                    ret_rec_loss = torch.mean(rec_loss, (0, 2))
-                    ret_pred_loss = torch.mean(pred_loss, (0, 2))
-                    ret_rec_loss[6:] = 0.1*ret_rec_loss[6:] + 0.9*ret_pred_loss
+            reco_loss = self.loss(output, data)
+            reco_loss = torch.mean(reco_loss)
+            reco_loss_arr.append(reco_loss.item())
 
-                    ret_reco_loss_arr.append(ret_rec_loss.cpu().numpy())
+            # reco_loss_batch = self.loss(output, data)
+            # reco_loss = torch.mean(reco_loss_batch)
+            # reco_loss_arr.append(reco_loss.item())
+            #
+            # reco_loss_batch = torch.mean(reco_loss_batch, (1, 3))
+            # ret_reco_loss_arr.append(reco_loss_batch) # [N, C, T, V]
 
-                reco_loss = self.loss(rec_out, data)
-                reco_loss = torch.mean(reco_loss)
-                reco_loss_arr.append(reco_loss.item())
 
         test_loss = np.mean(reco_loss_arr)
 

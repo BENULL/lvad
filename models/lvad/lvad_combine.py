@@ -15,13 +15,19 @@ class Model(nn.Module):
     def __init__(self, args=None):
         super(Model, self).__init__()
         self.gcn = AGCN(in_channels=3, headless=False, seg_len=args.seg_len).cuda(0)
-        self.lstm_ae = TwoBranchAutoEncoderRNN(input_size=54, hidden_size=16, num_layers=4).cuda(0)
+        self.lstm_ae = TwoBranchAutoEncoderRNN(input_size=128, hidden_size=800, num_layers=2).cuda(0)
+        self.mlp = nn.Sequential(
+            nn.Linear(54, 128),
+            nn.Linear(128, 256),
+            nn.Linear(256, 128),
+        )
 
     def forward(self, x):
         N, C, T, V = x.size()
-        gcn_out = self.gcn(x)
+        # gcn_out = self.gcn(x)
+        gcn_out = x.reshape(N, T, C*V)
 
-        # gcn_out = x.reshape(N, T, C*V)
+        gcn_out = self.mlp(gcn_out)
 
         rec_out, pre_out = self.lstm_ae(gcn_out)
 

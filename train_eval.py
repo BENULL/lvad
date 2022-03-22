@@ -84,7 +84,7 @@ def main():
     print("Done with {} AuC for {} samples and {} trans".format(auc, len(loader['test'].dataset), args.num_transform))
     log_dict['auc'] = 100 * auc
 
-    # csv_log_dump(args, log_dict)
+    csv_log_dump(args, log_dict)
     res_npz_path = save_result_npz(args, output_arr, rec_loss_arr, auc)
     visualizaion_predict_skeleton(res_npz_path)
 

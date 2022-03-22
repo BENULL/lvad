@@ -189,7 +189,8 @@ def score_dataset(score_vals, metadata, person_keys, max_clip=None, scene_id=Non
 
     # smooth
     scores_np = np.concatenate(scores_arr)
-    scores_smoothed = gaussian_filter1d(scores_np, args.sigma)
+    scores_smoothed = scores_np
+    # scores_smoothed = gaussian_filter1d(scores_np, args.sigma)
     scores_smoothed_arr = []
     frame_start = 0
     for i in range(len(scores_arr)):

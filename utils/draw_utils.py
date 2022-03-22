@@ -49,8 +49,11 @@ _OPENPOSE_EDGE_COLORS = [
 
 _OPENPOSE_EDGE_COLORS_BLUE = [(237, 40, 33)] * 17
 _OPENPOSE_EDGE_COLORS_RED = [(0, 0, 255)]*17
+_OPENPOSE_EDGE_COLORS_YELLOW = [(0, 255, 255)]*17
 _OPENPOSE_POINT_COLORS_BLUE = [(255, 9, 9)] * 18
 _OPENPOSE_POINT_COLORS_RED = [(0, 0, 255)]*18
+_OPENPOSE_POINT_COLORS_YELLOW = [(0, 255, 255)]*18
+
 
 RENDER_CONFIG_OPENPOSE = {
     'edges': _OPENPOSE_EDGES,
@@ -185,6 +188,7 @@ def draw_mask_skeleton(targets, predicts, metas, dir):
         # predict = (predict + 1) / 2
         # target = target.squeeze(1).T
         # target = (target + 1) / 2
+
         scene_id, clip_id, person_id = meta[:3]
         if scene_id != 1 or clip_id != 14:
             continue
@@ -193,7 +197,10 @@ def draw_mask_skeleton(targets, predicts, metas, dir):
         target_b = np.transpose(target_b.numpy(), (1,2,0))
         predict_b = np.transpose(predict_b, (1,2,0))
 
-        for target, predict in zip(target_b, predict_b):
+        predict_rec, predict_pred = predict_b[:-6, ...], predict_b[-6:, ...]
+
+        frame = 1
+        for target, predict in zip(target_b, predict_rec):
             mask_img = np.zeros((480, 856, 3), np.uint8)
             mask_img.fill(255)
 
@@ -206,7 +213,17 @@ def draw_mask_skeleton(targets, predicts, metas, dir):
             RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_BLUE
             RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_BLUE
             mask_img = renderPose(mask_img, target, inplace=False)
+
+            if frame >= 7:
+                RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_YELLOW
+                RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_YELLOW
+                predict_p = re_normalize_pose(predict_pred[frame-7], meta[5:])
+                mask_img = renderPose(mask_img, predict_p, inplace=False)
+
+            frame += 1
             mask_imgs.append(mask_img)
+
+
         mask_imgs = np.concatenate(mask_imgs, axis=0)
         cv2.imwrite(f'{dir}/{scene_id}-{clip_id}-{person_id}-{int(time.time()*10000)}.jpg', mask_imgs)
 

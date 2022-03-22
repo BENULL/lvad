@@ -29,7 +29,6 @@ class EncoderRNN(nn.Module):
         # initialize weights
         nn.init.xavier_uniform_(self.lstm.weight_ih_l0, gain=np.sqrt(2))
         nn.init.xavier_uniform_(self.lstm.weight_hh_l0, gain=np.sqrt(2))
-
         # nn.init.orthogonal_(self.lstm.weight_ih_l0, gain=np.sqrt(2))
         # nn.init.orthogonal_(self.lstm.weight_hh_l0, gain=np.sqrt(2))
 
@@ -75,23 +74,32 @@ class AutoEncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers=1, bidirectional=False):
         super(AutoEncoderRNN, self).__init__()
         # self.sequence_length = args['seg_len']
-        self.encoder = EncoderRNN(input_size, hidden_size, num_layers, bidirectional)
+        self.rec_encoder = EncoderRNN(input_size, hidden_size, num_layers, bidirectional)
+        self.pre_encoder = EncoderRNN(input_size, hidden_size, num_layers, bidirectional)
+
         self.rec_decoder = DecoderRNN(hidden_size, input_size, num_layers, bidirectional)
         self.pre_decoder = DecoderRNN(hidden_size, input_size, num_layers, bidirectional)
-        self.pre_linear = nn.Linear(54, 54)
-        self.rec_linear = nn.Linear(54, 54)
+        self.mlp = nn.Sequential(
+            nn.Linear(128, 256),
+            nn.Linear(256, 128),
+            nn.Linear(128, 54),
+        )
+        # self.pre_linear = nn.Linear(, 54)
+        # self.rec_linear = nn.Linear(54, 54)
 
     def forward(self, x):
         N, T, K = x.size()
-        encoded_x = self.encoder(x).expand(-1, T, -1)
-        rec_input = encoded_x
-        pre_input = encoded_x[:, :6, :]
+        rec_encoded_x = self.rec_encoder(x).expand(-1, T, -1)
+        # pre_encoded_x = self.pre_encoder(x[:, :6, :]).expand(-1, T//2, -1)
+
+        rec_input = rec_encoded_x
+        pre_input = rec_encoded_x[:, :6, :]
 
         # decoded_x = encoded_x
         rec_out = self.rec_decoder(rec_input)
         pre_out = self.pre_decoder(pre_input)
-        rec_out = self.rec_linear(rec_out)
-        pre_out = self.pre_linear(pre_out)
+        rec_out = self.mlp(rec_out)
+        pre_out = self.mlp(pre_out)
         return rec_out, pre_out
 
 if __name__ == '__main__':
