@@ -60,7 +60,7 @@ trans_list = [
     PoseTransform(sx=1, sy=1, tx=0.0, ty=0, rot=45, flip=False),  # 12
 ]
 
-# def normalize_pose(pose_data, **kwargs):
+# def normalize_pose(pose_data, seg_meta, **kwargs):
 #     """
 #     Normalize keypoint values to the range of [-1, 1]
 #     :param pose_data: Formatted as [N, T, V, F], e.g. (Batch=64, Frames=12, 18, 3)

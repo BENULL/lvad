@@ -125,13 +125,10 @@ class TCN_GCN_unit(nn.Module):
             self.residual = lambda x: x
 
         else:
-            self.residual = lambda x: x
-
-            # self.residual = unit_tcn(in_channels, out_channels, kernel_size=1, stride=stride)
+            self.residual = unit_tcn(in_channels, out_channels, kernel_size=1, stride=stride)
 
     def forward(self, x):
-        # x = self.tcn1(self.gcn1(x)) + self.residual(x)
-        x = self.gcn1(x) # + self.residual(x)
+        x = self.tcn1(self.gcn1(x)) + self.residual(x)
         return self.relu(x)
 
 
@@ -215,7 +212,7 @@ class Model(nn.Module):
         return x
 
 if __name__ == '__main__':
-    model = Model(in_channels=3).cuda(0)
+    model = Model(in_channels=2).cuda(0)
     print(model)
 
     # N, C, T, V
@@ -223,7 +220,7 @@ if __name__ == '__main__':
     # C：channels
     # T：Frames' Number
     # V：Joints‘ Number
-    data = torch.ones((2, 3, 12, 18))
+    data = torch.ones((2, 2, 12, 18))
     data = data.to(0)
     out = model(data)
     print(out)

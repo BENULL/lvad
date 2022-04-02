@@ -125,13 +125,10 @@ class TCN_GCN_unit(nn.Module):
             self.residual = lambda x: x
 
         else:
-            self.residual = lambda x: x
-
-            # self.residual = unit_tcn(in_channels, out_channels, kernel_size=1, stride=stride)
+            self.residual = unit_tcn(in_channels, out_channels, kernel_size=1, stride=stride)
 
     def forward(self, x):
-        # x = self.tcn1(self.gcn1(x)) + self.residual(x)
-        x = self.gcn1(x) # + self.residual(x)
+        x = self.tcn1(self.gcn1(x)) + self.residual(x)
         return self.relu(x)
 
 
@@ -148,20 +145,19 @@ class Model(nn.Module):
         self.l1 = TCN_GCN_unit(self.in_channels, 64, A, residual=False)
         self.l2 = TCN_GCN_unit(64, 64, A)
         self.l3 = TCN_GCN_unit(64, 64, A)
-        self.l4 = TCN_GCN_unit(64, 64, A)
+        # self.l4 = TCN_GCN_unit(64, 64, A)
 
-        # self.l4 = TCN_GCN_unit(64, 128, A)
+        self.l4 = TCN_GCN_unit(64, 128, A)
         self.l5 = TCN_GCN_unit(64, 128, A, stride=2)
         self.l6 = TCN_GCN_unit(128, 128, A)
-        self.l7 = TCN_GCN_unit(128, 128, A)
-        # self.l7 = TCN_GCN_unit(128, 256, A)
+        # self.l7 = TCN_GCN_unit(128, 128, A)
+        self.l7 = TCN_GCN_unit(128, 256, A)
         self.l8 = TCN_GCN_unit(128, 256, A, stride=2)
         self.l9 = TCN_GCN_unit(256, 256, A)
         self.l10 = TCN_GCN_unit(256, 256, A)
         # self.fcn_out = self.num_node * self.in_channels
         self.fcn_out = self.num_node*self.in_channels*self.seg_len
-        # self.fcn = nn.Conv2d(256, self.in_channels, kernel_size=1)
-        self.fcn = nn.Conv2d(256, self.fcn_out, kernel_size=1)
+        self.fcn = nn.Conv2d(256, self.in_channels, kernel_size=1)
         bn_init(self.data_bn, 1)
 
     def forward(self, x):
@@ -182,16 +178,16 @@ class Model(nn.Module):
         x = self.l2(x)
         x = self.l3(x)
         x = self.l4(x)
-        x = self.l5(x)
+        # x = self.l5(x)
         x = self.l6(x)
         x = self.l7(x)
-        x = self.l8(x)
+        # x = self.l8(x)
         x = self.l9(x)
         # x = self.l10(x)
 
 
-        x = F.avg_pool2d(x, x.size()[2:])
-        x = x.view(N, M, -1, 1, 1).mean(dim=1)
+        # x = F.avg_pool2d(x, x.size()[2:])
+        # x = x.view(N, M, -1, 1, 1).mean(dim=1)
 
 
         # N * M, C, T, V
@@ -215,7 +211,7 @@ class Model(nn.Module):
         return x
 
 if __name__ == '__main__':
-    model = Model(in_channels=3).cuda(0)
+    model = Model(in_channels=2).cuda(0)
     print(model)
 
     # N, C, T, V
@@ -223,7 +219,7 @@ if __name__ == '__main__':
     # C：channels
     # T：Frames' Number
     # V：Joints‘ Number
-    data = torch.ones((2, 3, 12, 18))
+    data = torch.ones((2, 2, 12, 18))
     data = data.to(0)
     out = model(data)
     print(out)

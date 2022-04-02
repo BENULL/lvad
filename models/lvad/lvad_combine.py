@@ -9,34 +9,54 @@ import torch
 import torch.nn as nn
 
 from models.lstm_autoencoder import TwoBranchAutoEncoderRNN
+from models.lstm_autoencoder import TwoBranchAutoEncoderGRU
 from models.agcn import Model as AGCN
+from models.msg3d.msg3d import Model as MSG3D
 
 class Model(nn.Module):
     def __init__(self, args=None):
         super(Model, self).__init__()
-        self.gcn = AGCN(in_channels=3, headless=False, seg_len=args.seg_len).cuda(0)
-        self.lstm_ae = TwoBranchAutoEncoderRNN(input_size=128, hidden_size=800, num_layers=2).cuda(0)
-        self.mlp = nn.Sequential(
-            nn.Linear(54, 128),
-            nn.Linear(128, 256),
-            nn.Linear(256, 128),
+        self.in_channels = args.in_channels
+        self.headless = args.headless
+        self.gcn = AGCN(in_channels=self.in_channels, headless=self.headless, seg_len=args.seg_len//2)
+        # self.gcn = MSG3D().cuda(0)
+        self.mlp_input_size = self.in_channels * (14 if self.headless else 18)
+        self.ae_hidden_size = self.mlp_input_size
+        self.lstm_ae = TwoBranchAutoEncoderGRU(input_size=self.mlp_input_size,
+                                               hidden_size=self.ae_hidden_size,
+                                               num_layers=2)
+
+        self.mlp_in = nn.Sequential(
+            nn.Linear(self.mlp_input_size, 256),
+            nn.ReLU(),
+            # nn.Linear(128, 256),
+            # nn.ReLU(),
+            nn.Linear(256, self.mlp_input_size),
+        )
+
+        self.mlp_out = nn.Sequential(
+            nn.Linear(self.ae_hidden_size, 256),
+            nn.ReLU(),
+            # nn.Linear(128, 256),
+            # nn.ReLU(),
+            # nn.Linear(256, 128),
+            # nn.ReLU(),
+            nn.Linear(256, self.mlp_input_size),
         )
 
     def forward(self, x):
         N, C, T, V = x.size()
-        # gcn_out = self.gcn(x)
-        gcn_out = x.reshape(N, T, C*V)
+        gcn_out = self.gcn(x)
 
-        gcn_out = self.mlp(gcn_out)
+        # gcn_out = x.reshape(N, T, C*V)
+        # gcn_out = self.mlp(gcn_out)
 
         rec_out, pre_out = self.lstm_ae(gcn_out)
-
-        # out = self.fcn(lstm_out)
-
-        # out = self.linear(out)
+        rec_out = self.mlp_out(rec_out)
+        pre_out = self.mlp_out(pre_out)
 
         rec_out = rec_out.reshape(N, C, T, V)
-        pre_out = pre_out.reshape(N, C, T//2, V)
+        pre_out = pre_out.reshape(N, C, T, V)
         # out = torch.cat((rec_out, pre_out), dim=2)
         return rec_out, pre_out
 

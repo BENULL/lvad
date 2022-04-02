@@ -6,7 +6,7 @@ import torch.optim as optim
 import time
 from tqdm import tqdm
 import shutil
-from torch.utils.tensorboard import SummaryWriter
+import csv
 
 
 class Trainer:
@@ -19,9 +19,8 @@ class Trainer:
         self.test_loader = test_loader
         # Loss, Optimizer and Scheduler
         self.loss = loss
-        self.motion_loss = nn.L1Loss()
 
-        self.writer = SummaryWriter(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), f'log/vis/{args.ckpt_dir.split("/")[-3]}'))
+        # self.ms_loss = nn.MSELoss()
 
         if optimizer_f is None:
             self.optimizer = self.get_optimizer()
@@ -87,8 +86,6 @@ class Trainer:
         self.model = self.model.to(args.device)
         for epoch in range(start_epoch, num_epochs):
             loss_list = []
-            predict_loss_list = []
-            motion_loss_list = []
             ep_start_time = time.time()
             print("Started epoch {}".format(epoch))
             for itern, data_arr in enumerate(tqdm(self.train_loader)):
@@ -108,37 +105,23 @@ class Trainer:
 
                 predict_loss = torch.mean(predict_loss)
 
-                # motion loss
 
-                N, C, T, V = data.size()
-                data_prev_data = torch.cat((torch.zeros(N, C, 1, V).to(data.device), data[:, :, :-1, :]), dim=2)
-                # y_hat_prev_data = torch.cat((torch.zeros(N, C, 1, V).to(data.device), output[:, :, :-1, :]), dim=2)
 
-                motion_y = torch.abs(data - data_prev_data)
-                motion_y_hat = torch.abs(output - data_prev_data)
-                motion_loss = self.motion_loss(motion_y, motion_y_hat)
 
                 reg_loss = calc_reg_loss(self.model)
                 # loss = predict_loss + 1e-3 * args.alpha * reg_loss
-                loss = predict_loss + motion_loss + args.alpha * reg_loss
+                loss = predict_loss # + args.alpha * reg_loss
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
                 loss_list.append(loss.item())
-                motion_loss_list.append(motion_loss.item())
-                predict_loss_list.append(predict_loss.item())
 
             print("Epoch {0} done, loss: {1:.7f}, took: {2:.3f}sec".format(epoch, np.mean(loss_list),
                                                                            time.time()-ep_start_time))
-
             new_lr = self.adjust_lr(epoch)
             print('lr: {0:.3e}'.format(new_lr))
-            self.writer.add_scalar('training total loss', np.mean(loss_list), epoch)
-            self.writer.add_scalar('training predict loss', np.mean(predict_loss_list), epoch)
-            self.writer.add_scalar('training motion loss', np.mean(motion_loss_list), epoch)
-            self.writer.add_scalar('lr', new_lr, epoch)
 
-            # self.save_checkpoint(epoch, args=args, filename=checkpoint_filename)
+            self.save_checkpoint(epoch, args=args, filename=checkpoint_filename)
 
             # if (epoch+1) % args.test_every == 0:
             #     self._test(epoch, self.test_loader, ret_output=False, log=False, args=args)

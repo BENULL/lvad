@@ -62,7 +62,8 @@ def main():
 
     # model = LVAD(args)
     model = LVAD_CONBINE(args)
-    loss = nn.MSELoss(reduction='none')
+    # loss = nn.MSELoss(reduction='none')
+    loss = nn.SmoothL1Loss(reduction='none')
 
     optimizer_f = init_optimizer(args.optimizer, lr=args.lr)
     scheduler_f = init_scheduler(args.sched, lr=args.lr, epochs=args.epochs)
@@ -97,7 +98,7 @@ def get_dataset_and_loader(args):
                     'scale': args.norm_scale, 'scale_proportional': args.prop_norm_scale, 'seg_len': args.seg_len,
                     'return_indices': True, 'return_metadata': True, 'hr': args.hr}
 
-    loader_args = {'batch_size': args.batch_size, 'num_workers': args.num_workers, 'pin_memory': True}
+    loader_args = {'batch_size': args.batch_size, 'num_workers': args.num_workers, 'pin_memory': False}
 
     dataset, loader = dict(), dict()
     for split in ['train', 'test']:

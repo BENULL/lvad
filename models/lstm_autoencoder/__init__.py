@@ -7,3 +7,4 @@
 """
 from .models import *
 from .two_branch import AutoEncoderRNN as TwoBranchAutoEncoderRNN
+from .gru import AutoEncoderRNN as TwoBranchAutoEncoderGRU

@@ -106,7 +106,6 @@ class Model(nn.Module):
     def __init__(self,
                  in_channels=3,
                  graph=None,
-                 seg_len=6,
                  num_gcn_scales=13,
                  num_g3d_scales=6,
                  ):
@@ -150,7 +149,6 @@ class Model(nn.Module):
         self.sgcn3[-1].act = nn.Identity()
         self.tcn3 = MS_TCN(c3, c3)
 
-        self.seg_len = seg_len
         # self.fc = nn.Linear(c3, in_channels*self.num_node)
         self.fcn_out = self.num_node*self.in_channels*self.seg_len
         self.fcn = nn.Conv2d(c3, self.fcn_out, kernel_size=1)
@@ -176,12 +174,12 @@ class Model(nn.Module):
         x = self.tcn3(x)
 
         out = x
-        # out_channels = out.size(1)
-        # out = out.view(N, M, out_channels, -1)
-        # out = out.mean(3)  # Global Average Pooling (Spatial+Temporal)
-        # out = out.mean(2)  # Average pool number of bodies in the sequence
+        out_channels = out.size(1)
+        out = out.view(N, M, out_channels, -1)
+        out = out.mean(3)  # Global Average Pooling (Spatial+Temporal)
+        out = out.mean(1)  # Average pool number of bodies in the sequence
 
-        out = F.avg_pool2d(out, out.size()[2:])
+
 
 
         # out = self.fc(out)
@@ -191,7 +189,7 @@ class Model(nn.Module):
         # x = x.view(N, C, 1, V)
 
         # TODO lstm
-        out = out.view(N, T, C * V)
+        out = x.view(N, T, C * V)
         # x = x.view(N, T, -1)
 
 
@@ -217,7 +215,7 @@ if __name__ == "__main__":
         num_g3d_scales=6,
     )
 
-    N, C, T, V = 2, 3, 6, 18
+    N, C, T, V = 2, 3, 12, 18
     x = torch.randn(N, C, T, V)
     x = model.forward(x)
     print(x)

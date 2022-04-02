@@ -190,26 +190,22 @@ def draw_mask_skeleton(targets, predicts, metas, dir):
         # target = (target + 1) / 2
 
         scene_id, clip_id, person_id = meta[:3]
-        if scene_id != 1 or clip_id != 14:
+        if scene_id not in [1] or clip_id not in [16]:
             continue
 
         mask_imgs = []
         target_b = np.transpose(target_b.numpy(), (1,2,0))
         predict_b = np.transpose(predict_b, (1,2,0))
 
-        predict_rec, predict_pred = predict_b[:-6, ...], predict_b[-6:, ...]
+        # predict_rec, predict_pred = predict_b[:-6, ...], predict_b[-6:, ...]
 
         frame = 1
-        for target, predict in zip(target_b, predict_rec):
+        for target, predict in zip(target_b, predict_b):
             mask_img = np.zeros((480, 856, 3), np.uint8)
             mask_img.fill(255)
 
             target = re_normalize_pose(target, meta[5:])
             predict = re_normalize_pose(predict, meta[5:])
-
-            RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_RED
-            RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_RED
-            mask_img = renderPose(mask_img, predict, inplace=False)
             RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_BLUE
             RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_BLUE
             mask_img = renderPose(mask_img, target, inplace=False)
@@ -217,8 +213,12 @@ def draw_mask_skeleton(targets, predicts, metas, dir):
             if frame >= 7:
                 RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_YELLOW
                 RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_YELLOW
-                predict_p = re_normalize_pose(predict_pred[frame-7], meta[5:])
-                mask_img = renderPose(mask_img, predict_p, inplace=False)
+                # predict_p = re_normalize_pose(predict_pred[frame-7], meta[5:])
+                mask_img = renderPose(mask_img, predict, inplace=False)
+            else:
+                RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_RED
+                RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_RED
+                mask_img = renderPose(mask_img, predict, inplace=False)
 
             frame += 1
             mask_imgs.append(mask_img)
