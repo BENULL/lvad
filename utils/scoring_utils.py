@@ -224,6 +224,7 @@ def get_dataset_scores_by_sample_avg_score(scores, metadata, person_keys, max_cl
                                             (metadata_np[:, 0] == scene_id) &
                                             (metadata_np[:, 2] == person_id))[0]
             pid_scores = scores[person_metadata_inds]
+
             clip_person_scores_dict[person_id] = np.mean(pid_scores)
 
             # pid_frame_inds = np.array([metadata[i][4] for i in person_metadata_inds])
@@ -251,7 +252,7 @@ def score_dataset(score_vals, metadata, person_keys, max_clip=None, scene_id=Non
 
     # gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores(score_vals, metadata, max_clip, scene_id, args)
 
-    # gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores_by_sample_score(score_vals, metadata, person_keys, max_clip, scene_id, args)
+    # gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores_by_sample_avg_score(score_vals, metadata, person_keys, max_clip, scene_id, args)
 
     # gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores_by_sample_frame_score(score_vals, metadata, person_keys, max_clip, scene_id, args)
 
@@ -260,8 +261,8 @@ def score_dataset(score_vals, metadata, person_keys, max_clip=None, scene_id=Non
 
     # smooth
     scores_np = np.concatenate(scores_arr)
-    scores_smoothed = scores_np
-    # scores_smoothed = gaussian_filter1d(scores_np, args.sigma)
+    # scores_smoothed = scores_np
+    scores_smoothed = gaussian_filter1d(scores_np, args.sigma)
     scores_smoothed_arr = []
     frame_start = 0
     for i in range(len(scores_arr)):
@@ -272,7 +273,7 @@ def score_dataset(score_vals, metadata, person_keys, max_clip=None, scene_id=Non
     normalized_scores = normalize_scores(scores_smoothed_arr)
     draw_anomaly_score_curve(normalized_scores, metadata_arr, gt_arr, cal_clip_roc_auc(gt_arr, scores_smoothed_arr), args.ckpt_dir.split('/')[2])
 
-
+    # macro auc calculate
     gt_np = np.concatenate(gt_arr)
     scores_np = np.concatenate(scores_arr)
     auc, shift, sigma = score_align(scores_np, gt_np, sigma=args.sigma)
@@ -343,6 +344,10 @@ def score_align(scores_np, gt, seg_len=12, sigma=40):
     # scores_shifted = np.zeros_like(scores_np)
     shift = seg_len + (seg_len // 2) - 1
     # scores_shifted[shift:] = scores_np[:-shift]
+
+
+    # TODO normalized calculate auc
+
 
     # scores_smoothed = scores_np
     scores_smoothed = gaussian_filter1d(scores_np, sigma)

@@ -62,8 +62,8 @@ def main():
 
     # model = LVAD(args)
     model = LVAD_CONBINE(args)
-    # loss = nn.MSELoss(reduction='none')
-    loss = nn.SmoothL1Loss(reduction='none')
+    loss = nn.MSELoss(reduction='none')
+    # loss = nn.SmoothL1Loss(reduction='none')
 
     optimizer_f = init_optimizer(args.optimizer, lr=args.lr)
     scheduler_f = init_scheduler(args.sched, lr=args.lr, epochs=args.epochs)
@@ -87,7 +87,7 @@ def main():
 
     csv_log_dump(args, log_dict)
     res_npz_path = save_result_npz(args, output_arr, rec_loss_arr, auc)
-    visualizaion_predict_skeleton(res_npz_path)
+    # visualizaion_predict_skeleton(res_npz_path)
 
 
 def get_dataset_and_loader(args):

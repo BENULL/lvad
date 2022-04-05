@@ -41,7 +41,7 @@ def visualizaion_predict_skeleton(res_npz_path):
 
         # draw_mask_skeleton(data[:, :args.in_channels, args.seg_len-1, :].unsqueeze(2), output_arr[itern])
 
-        draw_mask_skeleton(data, output_arr[itern], metas, args.ckpt_dir.split('/')[2])
+        draw_mask_skeleton(data.numpy(), output_arr[itern], metas, args.ckpt_dir.split('/')[2])
 
         # break
 

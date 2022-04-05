@@ -6,10 +6,7 @@ import torch.optim as optim
 import time
 from tqdm import tqdm
 import shutil
-from torch.utils.tensorboard import SummaryWriter
-
-from utils.data_utils import normalize_pose, re_normalize_pose
-from utils.draw_utils import draw_mask_skeleton
+import csv
 
 
 class Trainer:
@@ -22,10 +19,8 @@ class Trainer:
         self.test_loader = test_loader
         # Loss, Optimizer and Scheduler
         self.loss = loss
-        self.motion_loss = nn.L1Loss()
 
-        self.writer = SummaryWriter(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                                 f'log/vis/{args.ckpt_dir.split("/")[-3]}'))
+        # self.ms_loss = nn.MSELoss()
 
         if optimizer_f is None:
             self.optimizer = self.get_optimizer()
@@ -43,7 +38,7 @@ class Trainer:
             else:
                 return optim.Adam(self.model.parameters())
         else:
-            return optim.SGD(self.model.parameters(), lr=self.args.lr, )
+            return optim.SGD(self.model.parameters(), lr=self.args.lr,)
 
     def adjust_lr(self, epoch):
         return adjust_lr(self.optimizer, epoch, self.args.lr, self.args.lr_decay, self.scheduler)
@@ -88,65 +83,41 @@ class Trainer:
             start_epoch = 0
 
         self.model.train()
-        self.model = self.model.to(args.device)
+        self.model = nn.DataParallel(self.model, device_ids=[0, 1])  # multi-GPU
+
+        # self.model = self.model.to(args.device)
         for epoch in range(start_epoch, num_epochs):
             loss_list = []
-            local_loss_list = []
-            motion_loss_list = []
-            perceptual_loss_list = []
             ep_start_time = time.time()
             print("Started epoch {}".format(epoch))
             for itern, data_arr in enumerate(tqdm(self.train_loader)):
                 data = data_arr[0].to(args.device, non_blocking=True)
                 data = data[:, :args.in_channels, :, :]
-                local_data, xy_global, bounding_box_wh = normalize_pose(data)
-                x = local_data[:, :, :args.seg_len // 2, :]
+                x = data[:, :, :args.seg_len//2, :]
                 rec_out, pre_out = self.model(x)
+
                 rec_out = torch.flip(rec_out, dims=[2])
+
                 output = torch.cat((rec_out, pre_out), dim=2)
 
-                local_loss = self.loss(output, local_data)  # [N, C, T, V]
-                local_loss = torch.mean(local_loss)
+                # reconstruct_loss = self.loss(rec_out, data)
+                # predict_loss = self.loss(pre_out, data[:, :, 6:, :])
 
-                perceptual_out = re_normalize_pose(output, xy_global, bounding_box_wh)
-                perceptual_loss = self.loss(perceptual_out, data)  # [N, C, T, V]
-                perceptual_loss = torch.mean(perceptual_loss)
+                predict_loss = self.loss(output, data)  # [N, C, T, V]
 
-                # motion loss
-
-                N, C, T, V = data.size()
-                data_prev_data = torch.cat((torch.zeros(N, C, 1, V).to(local_data.device), local_data[:, :, :-1, :]), dim=2)
-                # # y_hat_prev_data = torch.cat((torch.zeros(N, C, 1, V).to(data.device), output[:, :, :-1, :]), dim=2)
-                #
-                motion_y = torch.abs(local_data - data_prev_data)
-                motion_y_hat = torch.abs(output - data_prev_data)
-                motion_loss = self.motion_loss(motion_y, motion_y_hat)
+                predict_loss = torch.mean(predict_loss)
 
                 reg_loss = calc_reg_loss(self.model)
-                # loss = predict_loss + 1e-3 * args.alpha * reg_loss
-                loss = local_loss + motion_loss + args.alpha * reg_loss
-                # loss = local_loss + 0.01*(perceptual_loss + motion_loss) + args.alpha * reg_loss
-                # loss = local_loss + args.alpha * reg_loss
-
-
+                loss = predict_loss + 1e-3 * args.alpha * reg_loss
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
                 loss_list.append(loss.item())
-                perceptual_loss_list.append(perceptual_loss.item())
-                # motion_loss_list.append(motion_loss.item())
-                local_loss_list.append(local_loss.item())
 
             print("Epoch {0} done, loss: {1:.7f}, took: {2:.3f}sec".format(epoch, np.mean(loss_list),
-                                                                           time.time() - ep_start_time))
-
+                                                                           time.time()-ep_start_time))
             new_lr = self.adjust_lr(epoch)
             print('lr: {0:.3e}'.format(new_lr))
-            self.writer.add_scalar('training total loss', np.mean(loss_list), epoch)
-            self.writer.add_scalar('training predict loss', np.mean(local_loss_list), epoch)
-            # self.writer.add_scalar('training motion loss', np.mean(motion_loss_list), epoch)
-            self.writer.add_scalar('training perceptual loss', np.mean(perceptual_loss_list), epoch)
-            self.writer.add_scalar('lr', new_lr, epoch)
 
             # self.save_checkpoint(epoch, args=args, filename=checkpoint_filename)
 
@@ -174,30 +145,26 @@ class Trainer:
             with torch.no_grad():
                 data = data_arr[0].to(args.device)
                 data = data[:, :args.in_channels, :, :]
-                local_data, xy_global, bounding_box_wh = normalize_pose(data)
-                x = local_data[:, :, :args.seg_len // 2, :]
-
+                x = data[:, :, :args.seg_len // 2, :]
                 rec_out, pre_out = self.model(x)
+
                 rec_out = torch.flip(rec_out, dims=[2])
+
                 output = torch.cat((rec_out, pre_out), dim=2)
-                perceptual_out = re_normalize_pose(output, xy_global, bounding_box_wh)
 
                 if ret_output:
-                    output_sfmax = perceptual_out
+                    output_sfmax = output
                     output_arr.append(output_sfmax.detach().cpu().numpy())
                     del output_sfmax
 
-                for origin, predict in zip(local_data, output):
+                for origin, predict in zip(data, output):
                     loss = self.loss(origin, predict)
                     ret_loss = torch.mean(loss, (0, 2))
                     ret_reco_loss_arr.append(ret_loss.cpu().numpy())
 
-                reco_loss = self.loss(perceptual_out, data)
+                reco_loss = self.loss(output, data)
                 reco_loss = torch.mean(reco_loss)
                 reco_loss_arr.append(reco_loss.item())
-
-                draw_mask_skeleton(data.cpu().numpy(), perceptual_out.cpu().numpy(), data_arr[2],
-                                   args.ckpt_dir.split('/')[2])
 
         test_loss = np.mean(reco_loss_arr)
 
@@ -270,3 +237,6 @@ def csv_log_dump(args, log_dict):
     experiment_csv_log = os.path.join(args.exp_dir, 'experiment_csv_log.csv')
     with open(experiment_csv_log, "a+") as file:
         file.write(log_str)
+
+
+
