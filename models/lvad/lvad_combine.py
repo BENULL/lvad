@@ -19,7 +19,7 @@ class Model(nn.Module):
         self.in_channels = args.in_channels
         self.headless = args.headless
         self.gcn = AGCN(in_channels=self.in_channels, headless=self.headless, seg_len=args.seg_len//2)
-        # self.gcn = MSG3D().cuda(0)
+        # self.gcn = MSG3D()
         self.mlp_input_size = self.in_channels * (14 if self.headless else 18)
         self.ae_hidden_size = self.mlp_input_size
         self.lstm_ae = TwoBranchAutoEncoderGRU(input_size=self.mlp_input_size,
@@ -43,26 +43,31 @@ class Model(nn.Module):
             # nn.ReLU(),
             nn.Linear(256, self.mlp_input_size),
         )
+        self.perceptual_linear = nn.Linear(self.mlp_input_size, self.mlp_input_size)
 
     def forward(self, x):
         N, C, T, V = x.size()
         gcn_out = self.gcn(x)
 
         # gcn_out = x.reshape(N, T, C*V)
-        # gcn_out = self.mlp(gcn_out)
+        # gcn_out = self.mlp_in(gcn_out)
 
         rec_out, pre_out = self.lstm_ae(gcn_out)
         rec_out = self.mlp_out(rec_out)
         pre_out = self.mlp_out(pre_out)
+        rec_out = torch.flip(rec_out, dims=[1])
+        local_out = torch.cat((rec_out, pre_out), dim=1)
+        perceptual_out = self.perceptual_linear(local_out)
 
-        rec_out = rec_out.reshape(N, C, T, V)
-        pre_out = pre_out.reshape(N, C, T, V)
-        # out = torch.cat((rec_out, pre_out), dim=2)
-        return rec_out, pre_out
+        local_out = local_out.reshape(N, C, -1, V)
+        perceptual_out = perceptual_out.reshape(N, C, -1, V)
+
+        return local_out, perceptual_out
 
 
 if __name__ == '__main__':
-    model = Model().cuda(0)
+
+    model = Model({'in_channels':3}).cuda(0)
 
     data = torch.ones((2, 3, 12, 18))
     data = data.to(0)

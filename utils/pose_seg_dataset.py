@@ -75,7 +75,7 @@ class PoseSegDataset(Dataset):
         return self.num_transform * self.num_samples
 
 
-def gen_dataset(person_json_root, num_clips=None, normalize_pose_segs=False,
+def gen_dataset(person_json_root, num_clips=None, normalize_pose_segs=True,
                 kp18_format=True, ret_keys=False, **dataset_args):
     """
     :param person_json_root:
@@ -119,7 +119,6 @@ def gen_dataset(person_json_root, num_clips=None, normalize_pose_segs=False,
         person_keys = {**person_keys, **clip_keys}
     segs_data_np = np.concatenate(segs_data_np, axis=0)
 
-    # TODO change normalize function
     # if normalize_pose_segs:
     #     segs_data_np, segs_meta = normalize_pose(segs_data_np, segs_meta, vid_res=vid_res, **dataset_args)
 

@@ -82,7 +82,7 @@ def main():
     auc, shift, sigma = score_dataset(rec_loss_arr, loader['test'].dataset.metadata, loader['test'].dataset.person_keys, max_clip=max_clip, args=args)
 
     # Logging and recording results
-    print("Done with {} AuC for {} samples and {} trans".format(auc, len(loader['test'].dataset), args.num_transform))
+    print("{} Done with {} AuC for {} samples and {} trans".format(args.ckpt_dir.split('/')[-3], auc, len(loader['test'].dataset), args.num_transform))
     log_dict['auc'] = 100 * auc
 
     csv_log_dump(args, log_dict)
