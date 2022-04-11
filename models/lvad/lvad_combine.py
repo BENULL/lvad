@@ -10,7 +10,7 @@ import torch.nn as nn
 
 from models.lstm_autoencoder import TwoBranchAutoEncoderRNN
 from models.lstm_autoencoder import TwoBranchAutoEncoderGRU
-from models.agcn import Model as AGCN
+from models.agcn.agcn_with_tcn import Model as AGCN
 from models.msg3d.msg3d import Model as MSG3D
 
 class Model(nn.Module):
@@ -43,21 +43,30 @@ class Model(nn.Module):
             # nn.ReLU(),
             nn.Linear(256, self.mlp_input_size),
         )
-        self.perceptual_linear = nn.Linear(self.mlp_input_size, self.mlp_input_size)
+        self.perceptual_linear = nn.Sequential(
+            nn.Linear(self.mlp_input_size, 128),
+            nn.ReLU(),
+            nn.Linear(128, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, self.mlp_input_size),
+        )
+        #nn.Linear(self.mlp_input_size, self.mlp_input_size)
 
     def forward(self, x):
         N, C, T, V = x.size()
-        gcn_out = self.gcn(x)
-
-        # gcn_out = x.reshape(N, T, C*V)
-        # gcn_out = self.mlp_in(gcn_out)
+        # gcn_out = self.gcn(x)
+        #
+        gcn_out = x.reshape(N, T, C*V)
+        gcn_out = self.mlp_in(gcn_out)
 
         rec_out, pre_out = self.lstm_ae(gcn_out)
         rec_out = self.mlp_out(rec_out)
         pre_out = self.mlp_out(pre_out)
         rec_out = torch.flip(rec_out, dims=[1])
         local_out = torch.cat((rec_out, pre_out), dim=1)
-        perceptual_out = self.perceptual_linear(local_out)
+        perceptual_out = self.perceptual_linear(local_out.clone())
 
         local_out = local_out.reshape(N, C, -1, V)
         perceptual_out = perceptual_out.reshape(N, C, -1, V)

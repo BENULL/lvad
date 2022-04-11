@@ -22,11 +22,12 @@ def cal_clip_roc_auc(gt_arr, scores_arr):
             auc_arr.append(0)
     return auc_arr
 
+
 def normalize_scores(score_arrs):
     score_arrs_normalized = []
     for scores in score_arrs:
         score_max = np.max(scores, axis=0)
-        score_normalized = (scores / score_max) * 0.95
+        score_normalized = (scores / score_max) * 0.99
         score_arrs_normalized.append(score_normalized)
     return score_arrs_normalized
 
@@ -102,7 +103,7 @@ def get_dataset_scores_by_rec_add_pre_score(scores, metadata, person_keys, max_c
                 pid_segment_rec_scores[start:start+seg_len//2] = np.max((pid_segment_rec_scores[start:start+seg_len//2], segment_scores[:seg_len//2]), axis=0)
                 pid_segment_pre_scores[start+seg_len//2:start+seg_len] = np.max((pid_segment_pre_scores[start+seg_len//2:start+seg_len], segment_scores[seg_len//2:]), axis=0)
 
-            clip_person_scores_dict[person_id] = np.max((pid_segment_rec_scores, pid_segment_pre_scores),0)
+            clip_person_scores_dict[person_id] = 0.3*pid_segment_rec_scores + 0.7*pid_segment_pre_scores
 
         clip_ppl_score_arr = np.stack(list(clip_person_scores_dict.values()))  # [persons, frames_score]
         clip_score = np.amax(clip_ppl_score_arr, axis=0)
@@ -264,33 +265,26 @@ def get_dataset_scores_by_sample_avg_score(scores, metadata, person_keys, max_cl
 def score_dataset(score_vals, metadata, person_keys, max_clip=None, scene_id=None, args=None):
     score_vals = np.array(score_vals)  # [samples, ]
 
-    # gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores(score_vals, metadata, max_clip, scene_id, args)
+    gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores(score_vals, metadata, max_clip, scene_id, args)
 
     # gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores_by_sample_avg_score(score_vals, metadata, person_keys, max_clip, scene_id, args)
 
     # gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores_by_sample_frame_score(score_vals, metadata, person_keys, max_clip, scene_id, args)
 
-    gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores_by_rec_add_pre_score(score_vals, metadata, person_keys, max_clip, scene_id, args)
-
-
-    # smooth
-    # scores_np = np.concatenate(scores_arr)
-    # # scores_smoothed = scores_np
-    # scores_smoothed = gaussian_filter1d(scores_np, args.sigma)
-    # scores_smoothed_arr = []
-    # frame_start = 0
-    # for i in range(len(scores_arr)):
-    #     scores_smoothed_arr.append(scores_smoothed[frame_start:frame_start + len(scores_arr[i])])
-    #     frame_start += len(scores_arr[i])
-
+    # gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores_by_rec_add_pre_score(score_vals, metadata, person_keys, max_clip, scene_id, args)
 
 
     # normalize to 0,1 and draw
     normalized_scores = normalize_scores(scores_arr)
+
+    # quantile_transform
+    # quantile_transformed_arrs = quantile_transform_errors(scores_arr)
     # smooth
     normalized_and_smooth_scores = smooth_scores(normalized_scores, args.sigma)
 
-    draw_anomaly_score_curve(normalized_scores, metadata_arr, gt_arr, cal_clip_roc_auc(gt_arr, normalized_and_smooth_scores), args.ckpt_dir.split('/')[2])
+    draw_anomaly_score_curve(normalized_and_smooth_scores, metadata_arr, gt_arr, cal_clip_roc_auc(gt_arr, normalized_and_smooth_scores), args.ckpt_dir.split('/')[2])
+
+    # draw_anomaly_score_curve(normalized_and_smooth_scores, metadata_arr, gt_arr, cal_clip_roc_auc(gt_arr, normalized_and_smooth_scores), args.ckpt_dir.split('/')[2])
 
     # macro auc calculate
     gt_np = np.concatenate(gt_arr)
@@ -298,7 +292,6 @@ def score_dataset(score_vals, metadata, person_keys, max_clip=None, scene_id=Non
     auc, shift, sigma = score_align(scores_np, gt_np, sigma=args.sigma)
 
     # micro auc calculate
-    score_align(scores_np, gt_np, sigma=args.sigma)
     micro_auc = roc_auc_score(gt_np, np.concatenate(normalized_and_smooth_scores))
     print(f'micro_auc = {micro_auc}')
     return auc, shift, sigma
@@ -406,3 +399,7 @@ def avg_scores_by_trans(scores, gt, num_transform=5, ret_first=False):
         return scores_trans_avg, gt_trans_avg, scores_first_trans
     else:
         return scores_trans_avg, gt_trans_avg
+
+
+if __name__ == '__main__':
+    pass

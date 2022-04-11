@@ -29,7 +29,7 @@ def init_parser(default_data_dir='data/ShanghaiTech', default_exp_dir='data/exp_
                         help='Debug experiment script with minimal epochs. (default: False)')
     parser.add_argument('--device', type=str, default='cuda:0', metavar='DEV',
                         help='Device for feature calculation (default: \'cuda:0\')')
-    parser.add_argument('--seed', type=int, metavar='S', default=999,
+    parser.add_argument('--seed', type=int, metavar='S', default=666,
                         help='Random seed, use 999 for random (default: 999)')
     parser.add_argument('--verbose', type=int, default=1, metavar='V', choices=[0, 1],
                         help='Verbosity [1/0] (default: 1)')
