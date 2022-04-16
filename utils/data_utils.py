@@ -143,7 +143,7 @@ def normalize_pose(pose_data, segs_meta=None, **kwargs):
 
     return pose_xy_local, pose_xy_perceptual, xy_global, bounding_box_wh
 
-def re_normalize_pose(normalized_pose, xy_global, bounding_box_wh):
+def re_normalize_pose(local_pose, normalized_pose, xy_global, bounding_box_wh):
     """
     :param normalized_pose: [N, C, T, V]
     :return:
@@ -153,15 +153,18 @@ def re_normalize_pose(normalized_pose, xy_global, bounding_box_wh):
     #     normalized_pose = normalized_pose[None]
     re_normalized_pose = normalized_pose.clone()
     re_normalized_pose = re_normalized_pose.permute(0, 2, 3, 1)
-
+    re_normalized_local_pose = local_pose.clone()
+    re_normalized_local_pose = re_normalized_local_pose.permute(0, 2, 3, 1)
 
     # xy_global = np.array(meta[:2])
     # bounding_box_wh = np.array(meta[2:])
 
     min_kp_xy = (2*xy_global-bounding_box_wh)/2
 
-    # re_normalized_pose[..., :2] = normalized_pose[..., :2] * bounding_box_wh[:, :, None, :] + xy_global[:, :, None, :]
+    re_normalized_local_pose[..., :2] = re_normalized_local_pose[..., :2] * bounding_box_wh[:, :, None, :] + xy_global[:, :, None, :]
     re_normalized_pose[..., :2] = re_normalized_pose[..., :2] * bounding_box_wh[:, :, None, :] + min_kp_xy[:, :, None, :]
 
     re_normalized_pose = re_normalized_pose.permute(0, 3, 1, 2)
-    return re_normalized_pose
+    re_normalized_local_pose = re_normalized_local_pose.permute(0, 3, 1, 2)
+
+    return re_normalized_local_pose, re_normalized_pose

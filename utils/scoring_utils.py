@@ -102,7 +102,7 @@ def get_dataset_scores_by_rec_add_pre_score(scores, metadata, person_keys, max_c
                 pid_segment_rec_scores[start:start+seg_len//2] = np.max((pid_segment_rec_scores[start:start+seg_len//2], segment_scores[:seg_len//2]), axis=0)
                 pid_segment_pre_scores[start+seg_len//2:start+seg_len] = np.max((pid_segment_pre_scores[start+seg_len//2:start+seg_len], segment_scores[seg_len//2:]), axis=0)
 
-            clip_person_scores_dict[person_id] = np.max((pid_segment_rec_scores, pid_segment_pre_scores),0)
+            clip_person_scores_dict[person_id] = 0.3*pid_segment_rec_scores + 0.7*pid_segment_pre_scores
 
         clip_ppl_score_arr = np.stack(list(clip_person_scores_dict.values()))  # [persons, frames_score]
         clip_score = np.amax(clip_ppl_score_arr, axis=0)

@@ -132,22 +132,26 @@ class Trainer:
 
                 # motion loss
 
-                # N, C, T, V = data.size()
-                # data_prev_data = torch.cat((torch.zeros(N, C, 1, V).to(pose_xy_perceptual.device), pose_xy_perceptual[:, :, :-1, :]), dim=2)
+                N, C, T, V = data.size()
+                data_prev_data = torch.cat((torch.zeros(N, C, 1, V).to(data.device), data[:, :, :-1, :]), dim=2)
 
                 # y_hat_prev_data = torch.cat((torch.zeros(N, C, 1, V).to(data.device), output[:, :, :-1, :]), dim=2)
 
-                # motion_y = torch.abs(pose_xy_perceptual - data_prev_data)
-                # motion_y_hat = torch.abs(perceptual_out - data_prev_data)
-                # motion_loss = self.motion_loss(motion_y, motion_y_hat)
+                motion_y = torch.abs(data - data_prev_data)
+                motion_y_hat = torch.abs(perceptual_out - data_prev_data)
+                motion_loss = self.motion_loss(motion_y, motion_y_hat)
 
                 reg_loss = calc_reg_loss(self.model)
                 # loss = predict_loss + 1e-3 * args.alpha * reg_loss
                 # loss = local_loss + motion_loss + args.alpha * reg_loss
                 # loss = local_loss + 0.01*(perceptual_loss + motion_loss) + args.alpha * reg_loss
                 # loss = local_loss + 0.06 * perceptual_loss + args.alpha * reg_loss
+                #
 
-                loss = local_loss + 0.0001*perceptual_loss + 1e-3 * args.alpha * reg_loss
+                # + 0.5 * motion_loss / (motion_loss / local_loss).detach()
+                loss = local_loss + perceptual_loss/(perceptual_loss/local_loss).detach() + motion_loss / (motion_loss / local_loss).detach() + 1e-3 * args.alpha * reg_loss
+                # loss = local_loss/local_loss.detach() + perceptual_loss/perceptual_loss.detach() + 1e-3 * args.alpha * reg_loss
+
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
@@ -207,11 +211,11 @@ class Trainer:
                 # x = x / torch.from_numpy(scale[:, None, :, None]).type(torch.float32).to(args.device)
 
                 local_out, perceptual_out = self.model(x)
-                # origin_pose = re_normalize_pose(perceptual_out, xy_global, bounding_box_wh)
+                origin_pose, _ = re_normalize_pose(local_out, perceptual_out, xy_global, bounding_box_wh)
 
 
                 if ret_output:
-                    output_sfmax = perceptual_out #origin_pose
+                    output_sfmax = origin_pose
                     output_arr.append(output_sfmax.detach().cpu().numpy())
                     del output_sfmax
 
@@ -224,6 +228,8 @@ class Trainer:
                 reco_loss = torch.mean(reco_loss)
                 reco_loss_arr.append(reco_loss.item())
 
+                draw_mask_skeleton(data.cpu().numpy(), origin_pose.cpu().numpy(), data_arr[2],
+                                   args.ckpt_dir.split('/')[2])
                 draw_mask_skeleton(data.cpu().numpy(), perceptual_out.cpu().numpy(), data_arr[2],
                                    args.ckpt_dir.split('/')[2])
 
