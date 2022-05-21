@@ -16,9 +16,12 @@ from utils.data_utils import trans_list
 from utils.optim_utils.optim_init import init_optimizer, init_scheduler
 from utils.pose_seg_dataset import PoseSegDataset
 from utils.pose_ad_argparse import init_parser, init_sub_args
-from utils.scoring_utils_for_gru import score_dataset
-from utils.train_utils_for_gru import Trainer, csv_log_dump
-from models.gcn_gru.lvad_combine_gru import Model as GCN_GRU
+from utils.scoring_utils import score_dataset
+from utils.train_utils_for_gcn_gru_decoder import Trainer, csv_log_dump
+from visualization import visualizaion_predict_skeleton
+
+from models.lvad import LVAD
+from models.gcn_gru_decoder.lvad_combine_gcn_gru_decoder import Model  as LVAD_CONBINE
 
 def main():
     parser = init_parser()
@@ -58,7 +61,7 @@ def main():
     # model = models_dict[args.model]
 
     # model = LVAD(args)
-    model = GCN_GRU(args)
+    model = LVAD_CONBINE(args)
     # model = AGCN(in_channels=3, seg_len=12, headless=False)
     loss = nn.MSELoss(reduction='none')
     # loss = nn.SmoothL1Loss(reduction='none')

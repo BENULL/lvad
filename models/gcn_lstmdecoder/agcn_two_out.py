@@ -156,9 +156,11 @@ class Model(nn.Module):
         self.l9 = TCN_GCN_unit(256, 256, A)
         self.l10 = TCN_GCN_unit(256, 256, A)
         # self.fcn_out = self.num_node * self.in_channels
-        self.fcn_out = self.num_node * self.in_channels*self.seg_len
+        self.fcn_out = self.num_node * self.in_channels * self.seg_len * 3
         # self.fcn = nn.Conv2d(256, self.in_channels, kernel_size=1)
-        self.fcn = nn.Conv2d(256, self.fcn_out, kernel_size=1)
+        self.fcn3 = nn.Conv2d(256, self.fcn_out, kernel_size=1)
+        self.fcn2 = nn.Conv2d(128, self.fcn_out, kernel_size=1)
+        self.fcn1 = nn.Conv2d(64, self.fcn_out, kernel_size=1)
         bn_init(self.data_bn, 1)
 
     def forward(self, x):
@@ -179,15 +181,19 @@ class Model(nn.Module):
         x = self.l2(x)
         x = self.l3(x)
         x = self.l4(x)
+        out1 = x.clone()
         x = self.l5(x)
         x = self.l6(x)
         x = self.l7(x)
+        out2 = x.clone()
         x = self.l8(x)
         x = self.l9(x)
         # x = self.l10(x)
 
 
         x = F.avg_pool2d(x, x.size()[2:])
+        out1 = F.avg_pool2d(out1, out1.size()[2:])
+        out2 = F.avg_pool2d(out2, out2.size()[2:])
         x = x.view(N, M, -1, 1, 1).mean(dim=1)
 
 
@@ -202,14 +208,18 @@ class Model(nn.Module):
         # x = x.view(N, C, 1, V)
 
         # prediction
-        x = self.fcn(x)
+        out1 = self.fcn1(out1)
+        out2 = self.fcn2(out2)
+        x = self.fcn3(x)
         # x = x.view(N, C, 1, V)
 
         # TODO lstm
+        out1 = out1.view(N, -1)
+        out2 = out2.view(N, -1)
         x = x.view(N, -1)
         # x = x.view(N, T, -1)
 
-        return x
+        return out1, out2, x
 
 if __name__ == '__main__':
     model = Model(in_channels=2).cuda(0)

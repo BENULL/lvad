@@ -76,7 +76,7 @@ class DecoderRNN(nn.Module):
 
 
 class AutoEncoderRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers=1, bidirectional=False):
+    def __init__(self, input_size, hidden_size, num_layers=2, bidirectional=False):
         super(AutoEncoderRNN, self).__init__()
         # self.sequence_length = args['seg_len']
         self.hidden_size = hidden_size
@@ -90,7 +90,7 @@ class AutoEncoderRNN(nn.Module):
 
     def forward(self, x):
         _, N, K = x.size()
-        T = K//3//18
+        T = 6 #K//3//18
         encoder_h_n = x
         # encoder_h_n = self.encoder(x)
         rec_decoder_h_0 = encoder_h_n.clone()

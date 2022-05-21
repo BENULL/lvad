@@ -17,7 +17,7 @@ from utils.optim_utils.optim_init import init_optimizer, init_scheduler
 from utils.pose_seg_dataset import PoseSegDataset
 from utils.pose_ad_argparse import init_parser, init_sub_args
 from utils.scoring_utils import score_dataset
-from utils.train_utils_perpuate_loss import Trainer, csv_log_dump
+from utils.train_utils_gcn_encoder import Trainer, csv_log_dump
 from visualization import visualizaion_predict_skeleton
 from models.gcn_lstmdecoder.gcn_lstm_dec import Model as GCN_LSTM
 from models.lvad import LVAD
@@ -27,6 +27,8 @@ def main():
     parser = init_parser()
     args = parser.parse_args()
     log_dict = collections.defaultdict(int)
+
+    torch.autograd.set_detect_anomaly(True)
 
     if args.seed == 999:  # Record and init seed
         args.seed = torch.initial_seed()
@@ -63,8 +65,8 @@ def main():
     # model = LVAD(args)
     model = GCN_LSTM(args)
     # model = AGCN(in_channels=3, seg_len=12, headless=False)
-    loss = nn.MSELoss(reduction='none')
-    # loss = nn.SmoothL1Loss(reduction='none')
+    # loss = nn.MSELoss(reduction='none')
+    loss = nn.SmoothL1Loss(reduction='none')
 
     optimizer_f = init_optimizer(args.optimizer, lr=args.lr)
     scheduler_f = init_scheduler(args.sched, lr=args.lr, epochs=args.epochs)

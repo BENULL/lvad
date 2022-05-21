@@ -153,7 +153,7 @@ class Trainer:
                 # + 0.5 * motion_loss / (motion_loss / local_loss).detach()
                 motion_loss = motion_loss/(motion_loss / local_loss).detach()
                 perceptual_loss = perceptual_loss / (perceptual_loss / local_loss).detach()
-                loss = 4*local_loss + 1*perceptual_loss + 1*motion_loss + 1e-3 * args.alpha * reg_loss
+                loss = local_loss + perceptual_loss + motion_loss + 1e-3 * args.alpha * reg_loss
 
                 # loss = local_loss/local_loss.detach() + perceptual_loss/perceptual_loss.detach() + 1e-3 * args.alpha * reg_loss
 
@@ -236,8 +236,8 @@ class Trainer:
 
                 draw_mask_skeleton(data.cpu().numpy(), origin_pose.cpu().numpy(), data_arr[2],
                                    args.ckpt_dir.split('/')[2])
-                draw_mask_skeleton(data.cpu().numpy(), perceptual_out.cpu().numpy(), data_arr[2],
-                                   args.ckpt_dir.split('/')[2])
+                # draw_mask_skeleton(data.cpu().numpy(), perceptual_out.cpu().numpy(), data_arr[2],
+                #                    args.ckpt_dir.split('/')[2])
 
         test_loss = np.mean(reco_loss_arr)
 

@@ -109,23 +109,23 @@ class Trainer:
                 local_data, pose_xy_perceptual, xy_global, bounding_box_wh = normalize_pose(data)
                 x, reco_x = local_data[:, :args.in_channels, :args.seg_len - 1, :], local_data[:, :args.in_channels,
                                                                                     args.seg_len - 1, :].unsqueeze(2)
-
-                motion = torch.sqrt(torch.sum(torch.square(xy_global[:, 1:, :] - xy_global[:, :-1, :]), 2, )) / torch.sum(bounding_box_wh[:, :-1, :], 2)
-                scale = self.motion_embedder.transform(motion[:, :args.seg_len - 1].cpu().numpy())
-                x = x / torch.from_numpy(scale[:, None, :, None]).type(torch.float32).to(args.device)
+                #
+                # motion = torch.sqrt(torch.sum(torch.square(xy_global[:, 1:, :] - xy_global[:, :-1, :]), 2, )) / torch.sum(bounding_box_wh[:, :-1, :], 2)
+                # scale = self.motion_embedder.transform(motion[:, :args.seg_len - 1].cpu().numpy())
+                # x = x / torch.from_numpy(scale[:, None, :, None]).type(torch.float32).to(args.device)
 
                 output = self.model(x)
 
                 reco_loss = self.loss(output, reco_x)
                 reco_loss = torch.mean(reco_loss)
 
-                if epoch == num_epochs-1:
-                    for origin, predict, meta in zip(reco_x, output, data_arr[2]):
-                        scene_id = meta[0].item()
-                        loss = self.loss(origin, predict)
-                        train_loss = torch.mean(loss)
-                        aa = train_loss.detach().cpu().item()
-                        training_error_by_scene[scene_id].append(train_loss.detach().cpu().item())
+                # if epoch == num_epochs-1:
+                #     for origin, predict, meta in zip(reco_x, output, data_arr[2]):
+                #         scene_id = meta[0].item()
+                #         loss = self.loss(origin, predict)
+                #         train_loss = torch.mean(loss)
+                #         aa = train_loss.detach().cpu().item()
+                #         training_error_by_scene[scene_id].append(train_loss.detach().cpu().item())
 
 
 
@@ -182,15 +182,15 @@ class Trainer:
                 local_data, pose_xy_perceptual, xy_global, bounding_box_wh = normalize_pose(data)
                 x, reco_x = local_data[:, :args.in_channels, :args.seg_len - 1, :], local_data[:, :args.in_channels,
                                                                                     args.seg_len - 1, :].unsqueeze(2)
-
-                motion = torch.sqrt(
-                    torch.sum(torch.square(xy_global[:, 1:, :] - xy_global[:, :-1, :]), 2, )) / torch.sum(
-                    bounding_box_wh[:, :-1, :], 2)
-                scale = self.motion_embedder.transform(motion[:, :args.seg_len - 1].cpu().numpy())
-                x = x / torch.from_numpy(scale[:, None, :, None]).type(torch.float32).to(args.device)
+                #
+                # motion = torch.sqrt(
+                #     torch.sum(torch.square(xy_global[:, 1:, :] - xy_global[:, :-1, :]), 2, )) / torch.sum(
+                #     bounding_box_wh[:, :-1, :], 2)
+                # scale = self.motion_embedder.transform(motion[:, :args.seg_len - 1].cpu().numpy())
+                # x = x / torch.from_numpy(scale[:, None, :, None]).type(torch.float32).to(args.device)
 
                 output = self.model(x)
-                origin_pose = re_normalize_pose(output, xy_global[:, -1:, :], bounding_box_wh[:, -1:, :])
+                origin_pose = output #re_normalize_pose(output, xy_global[:, -1:, :], bounding_box_wh[:, -1:, :])
 
 
                 if ret_output:

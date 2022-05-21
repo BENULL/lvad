@@ -2,11 +2,11 @@ import os
 import json
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
-from utils.data_utils import normalize_pose
+from utils.data_utils import normalize_pose, normalize_pose_by_vid
 
 from utils.segment_utils import gen_clip_seg_data_np
 
-HUMAN_IRRELATED_CLIPS = ['01_0130','01_0135','01_0136','06_0144','06_0145','12_0152']
+HUMAN_IRRELATED_CLIPS = ['01_0130','01_0135','01_0136','06_0144','06_0145','12_0152']+['01_000293', '01_000290', '01_000295', '01_000248', '01_000308', '01_000254', '01_000232', '01_000236', '01_000277', '01_000292', '01_000357', '01_000320', '01_000242', '01_000329', '01_000209', '01_000340', '01_000335', '01_000355', '01_000249', '01_000269', '01_000333', '01_000306', '01_000300', '01_000294', '01_000247', '01_000280', '01_000279', '01_000287', '01_000218', '01_000315', '01_000349', '01_000319', '01_000344', '01_000274', '01_000276', '01_000322', '01_000229', '01_000298', '01_000237', '01_000271', '01_000309', '01_000330', '01_000268', '01_000273', '01_000233', '01_000353', '01_000302', '01_000245', '01_000252', '01_000243', '01_000215', '01_000352', '01_000275', '01_000272', '01_000223', '01_000217', '01_000226', '01_000230', '01_000342', '01_000267', '01_000265', '01_000310', '01_000327', '01_000314', '01_000244', '01_000336', '01_000346', '01_000256', '01_000222', '01_000258', '01_000334', '01_000347']
 
 class PoseSegDataset(Dataset):
     """
@@ -75,7 +75,7 @@ class PoseSegDataset(Dataset):
         return self.num_transform * self.num_samples
 
 
-def gen_dataset(person_json_root, num_clips=None, normalize_pose_segs=True,
+def gen_dataset(person_json_root, num_clips=None, normalize_pose_segs=False,
                 kp18_format=True, ret_keys=False, **dataset_args):
     """
     :param person_json_root:
@@ -95,7 +95,8 @@ def gen_dataset(person_json_root, num_clips=None, normalize_pose_segs=True,
     start_ofst = dataset_args.get('start_ofst', 0)
     seg_stride = dataset_args.get('seg_stride', 1)
     seg_len = dataset_args.get('seg_len', 12)
-    vid_res = dataset_args.get('vid_res', [856, 480])
+    # TODO normalize 分辨率
+    vid_res = dataset_args.get('vid_res', [640, 360]) # [856, 480]
     headless = dataset_args.get('headless', False)
     seg_conf_th = dataset_args.get('train_seg_conf_th', 0.0)
     human_related = dataset_args.get('hr', False)
@@ -119,8 +120,8 @@ def gen_dataset(person_json_root, num_clips=None, normalize_pose_segs=True,
         person_keys = {**person_keys, **clip_keys}
     segs_data_np = np.concatenate(segs_data_np, axis=0)
 
-    # if normalize_pose_segs:
-    #     segs_data_np, segs_meta = normalize_pose(segs_data_np, segs_meta, vid_res=vid_res, **dataset_args)
+    if normalize_pose_segs:
+        segs_data_np, segs_meta = normalize_pose_by_vid(segs_data_np, segs_meta, vid_res=vid_res, **dataset_args)
 
     if kp18_format and segs_data_np.shape[-2] == 17:
         segs_data_np = keypoints17_to_coco18(segs_data_np)

@@ -8,7 +8,7 @@ from tqdm import tqdm
 import shutil
 from torch.utils.tensorboard import SummaryWriter
 
-from utils.data_utils import normalize_pose, re_normalize_pose, normalize_pose_by_video
+from utils.data_utils import normalize_pose, re_normalize_pose
 from utils.draw_utils import draw_mask_skeleton
 from utils.motion_embedder import MotionEmbedder
 from collections import defaultdict
@@ -23,7 +23,7 @@ class Trainer:
         self.test_loader = test_loader
         # Loss, Optimizer and Scheduler
         self.loss = loss
-        self.motion_loss = nn.SmoothL1Loss()
+        self.motion_loss = nn.L1Loss()
         self.motion_embedder = MotionEmbedder(method='rayleigh')
         self.writer = SummaryWriter(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                                  f'log/vis/{args.ckpt_dir.split("/")[-3]}'))
@@ -102,9 +102,9 @@ class Trainer:
                 data = data_arr[0].to(args.device, non_blocking=True)
                 data = data[:, :args.in_channels, :, :]
                 local_data, pose_xy_perceptual, xy_global, bounding_box_wh = normalize_pose(data)
-
-                # normalized_data = normalize_pose_by_video(data)
+                # x = local_data[:, :, :args.seg_len // 2, :]
                 x = local_data[:, :, :args.seg_len // 2, :]
+
 
                 # motion = torch.sqrt(torch.sum(torch.square(xy_global[:, 1:, :] - xy_global[:, :-1, :]), 2, )) / torch.sum(bounding_box_wh[:, :-1, :], 2)
                 # scale = self.motion_embedder.transform(motion[:, :args.seg_len // 2].cpu().numpy())
@@ -118,44 +118,36 @@ class Trainer:
                 local_loss = self.loss(local_out, local_data)  # [N, C, T, V]
                 local_loss = torch.mean(local_loss)
 
-                perceptual_loss = self.loss(perceptual_out, data)  # [N, C, T, V]
+                perceptual_loss = self.loss(perceptual_out, pose_xy_perceptual)  # [N, C, T, V]
                 perceptual_loss = torch.mean(perceptual_loss)
-
-
-
-
-                # if epoch == num_epochs-1:
-                #     for origin, predict, meta in zip(perceptual_out, data, data_arr[2]):
-                #         scene_id = meta[0].item()
-                #         loss = self.loss(origin, predict)
-                #         train_loss = torch.mean(loss, (0, 2))
-                #         training_error_by_scene[scene_id].extend(train_loss.detach().cpu().tolist())
 
 
                 # motion loss
 
                 N, C, T, V = data.size()
-                data_prev_data = torch.cat((torch.zeros(N, C, 1, V).to(data.device), data[:, :, :-1, :]), dim=2)
+                data_prev_data = torch.cat((torch.zeros(N, C, 1, V).to(data.device), pose_xy_perceptual[:, :, :-1, :]), dim=2)
 
                 # y_hat_prev_data = torch.cat((torch.zeros(N, C, 1, V).to(data.device), output[:, :, :-1, :]), dim=2)
 
-                motion_y = torch.abs(data - data_prev_data)
+                motion_y = torch.abs(pose_xy_perceptual - data_prev_data)
                 motion_y_hat = torch.abs(perceptual_out - data_prev_data)
                 motion_loss = self.motion_loss(motion_y, motion_y_hat)
 
                 reg_loss = calc_reg_loss(self.model)
-                # loss = perceptual_loss + 1e-3 * args.alpha * reg_loss
+                # loss = predict_loss + 1e-3 * args.alpha * reg_loss
                 # loss = local_loss + 1e-3 * args.alpha * reg_loss
                 # loss = local_loss + 0.01*(perceptual_loss + motion_loss) + args.alpha * reg_loss
                 # loss = local_loss + 0.06 * perceptual_loss + args.alpha * reg_loss
                 #
 
                 # + 0.5 * motion_loss / (motion_loss / local_loss).detach()
-                motion_loss = motion_loss/(motion_loss / local_loss).detach()
+                # local_loss = local_loss / (local_loss / perceptual_loss).detach()
+                motion_loss = motion_loss / (motion_loss / local_loss).detach()
                 perceptual_loss = perceptual_loss / (perceptual_loss / local_loss).detach()
-                loss = 4*local_loss + 1*perceptual_loss + 1*motion_loss + 1e-3 * args.alpha * reg_loss
+                # loss = perceptual_loss + motion_loss + 1e-3 * args.alpha * reg_loss
 
-                # loss = local_loss/local_loss.detach() + perceptual_loss/perceptual_loss.detach() + 1e-3 * args.alpha * reg_loss
+                loss = local_loss + perceptual_loss + motion_loss + 1e-3 * args.alpha * reg_loss
+                # loss = local_loss + perceptual_loss/(perceptual_loss/local_loss).detach() + 1e-3 * args.alpha * reg_loss
 
                 loss.backward()
                 self.optimizer.step()
@@ -207,7 +199,6 @@ class Trainer:
                 data = data[:, :args.in_channels, :, :]
                 local_data, pose_xy_perceptual, xy_global, bounding_box_wh = normalize_pose(data)
 
-                # normalized_data = normalize_pose_by_video(data)
                 x = local_data[:, :, :args.seg_len // 2, :]
 
                 # motion = torch.sqrt(
@@ -225,19 +216,19 @@ class Trainer:
                     output_arr.append(output_sfmax.detach().cpu().numpy())
                     del output_sfmax
 
-                for origin, predict in zip(data, perceptual_out):
+                for origin, predict in zip(pose_xy_perceptual, perceptual_out):
                     loss = self.loss(origin, predict)
                     ret_loss = torch.mean(loss, (0, 2))
                     ret_reco_loss_arr.append(ret_loss.cpu().numpy())
 
-                reco_loss = self.loss(data, perceptual_out)
+                reco_loss = self.loss(pose_xy_perceptual, perceptual_out)
                 reco_loss = torch.mean(reco_loss)
                 reco_loss_arr.append(reco_loss.item())
 
                 draw_mask_skeleton(data.cpu().numpy(), origin_pose.cpu().numpy(), data_arr[2],
                                    args.ckpt_dir.split('/')[2])
-                draw_mask_skeleton(data.cpu().numpy(), perceptual_out.cpu().numpy(), data_arr[2],
-                                   args.ckpt_dir.split('/')[2])
+                # draw_mask_skeleton(data.cpu().numpy(), perceptual_out.cpu().numpy(), data_arr[2],
+                #                    args.ckpt_dir.split('/')[2])
 
         test_loss = np.mean(reco_loss_arr)
 

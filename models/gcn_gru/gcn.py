@@ -163,13 +163,13 @@ class SimpleGCN(nn.Module):
         x = x.view(n, self.kernel_size, kc//self.kernel_size, t, v)
         x = torch.einsum('nkctv,kvw->nctw', (x, self.A))
 
-        x = self.bn(x)
+        # x = self.bn(x)
         return self.relu(x)
 
 if __name__ == '__main__':
     in_channels, out_channels = 3, 3
     # gcn = GCN(in_channels, out_channels).to(3)
     gcn = SimpleGCN(3, 64).to(3)
-    x = torch.ones((256, 3, 1, 18)).to(3)  # N, C, T, V
+    x = torch.randn((256, 3, 1, 18)).to(3)  # N, C, T, V
     out = gcn(x)
     print(out)

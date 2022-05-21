@@ -48,16 +48,16 @@ class Model(nn.Module):
         #     nn.Linear(128, self.mlp_input_size),
         # )
         #nn.Linear(self.mlp_input_size, self.mlp_input_size)
-        self.rec_local_fcn = nn.Conv2d(64, self.in_channels, kernel_size=1)
-        self.pre_local_fcn = nn.Conv2d(64, self.in_channels, kernel_size=1)
-        self.perceptual_fcn = nn.Conv2d(3, self.in_channels, kernel_size=1)
+        self.local_fcn = nn.Conv2d(64, self.in_channels, kernel_size=1)
+        # self.pre_local_fcn = nn.Conv2d(64, self.in_channels, kernel_size=1)
+        self.perceptual_fcn = nn.Conv2d(self.in_channels, self.in_channels, kernel_size=1)
 
     def forward(self, x):
         N, C, T, V = x.size()
         rec_out, pre_out = self.gcn_lstm_ae(x)
         # x = F.avg_pool2d(rec_out, rec_out.size()[2:])
-        rec_out = self.rec_local_fcn(rec_out)
-        pre_out = self.pre_local_fcn(pre_out)
+        rec_out = self.local_fcn(rec_out)
+        pre_out = self.local_fcn(pre_out)
 
         rec_out = torch.flip(rec_out, dims=[2])
         local_out = torch.cat((rec_out, pre_out), dim=2)

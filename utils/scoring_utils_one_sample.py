@@ -282,7 +282,7 @@ def score_dataset(score_vals, metadata, person_keys, max_clip=None, scene_id=Non
     # smooth
     normalized_and_smooth_scores = smooth_scores(normalized_scores, args.sigma)
 
-    draw_anomaly_score_curve(normalized_and_smooth_scores, metadata_arr, gt_arr, cal_clip_roc_auc(gt_arr, normalized_and_smooth_scores), args.ckpt_dir.split('/')[2])
+    # draw_anomaly_score_curve(normalized_and_smooth_scores, metadata_arr, gt_arr, cal_clip_roc_auc(gt_arr, normalized_and_smooth_scores), args.ckpt_dir.split('/')[2])
 
     # draw_anomaly_score_curve(normalized_and_smooth_scores, metadata_arr, gt_arr, cal_clip_roc_auc(gt_arr, normalized_and_smooth_scores), args.ckpt_dir.split('/')[2])
 

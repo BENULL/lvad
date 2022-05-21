@@ -22,7 +22,6 @@ def cal_clip_roc_auc(gt_arr, scores_arr):
             auc_arr.append(0)
     return auc_arr
 
-
 def normalize_scores(score_arrs):
     score_arrs_normalized = []
     for scores in score_arrs:
@@ -31,7 +30,6 @@ def normalize_scores(score_arrs):
         score_arrs_normalized.append(score_normalized)
     return score_arrs_normalized
 
-
 def quantile_transform_errors(score_arrs):
     score_arrs_transformed = []
     for scores in score_arrs:
@@ -39,14 +37,12 @@ def quantile_transform_errors(score_arrs):
         score_arrs_transformed.append(scores_smoothed)
     return score_arrs_transformed
 
-
 def smooth_scores(score_arrs, sigma=40):
     score_arrs_smoothed = []
     for scores in score_arrs:
         scores_smoothed = gaussian_filter1d(scores, sigma)
         score_arrs_smoothed.append(scores_smoothed)
     return score_arrs_smoothed
-
 
 def get_dataset_scores_by_rec_add_pre_score(scores, metadata, person_keys, max_clip=None, scene_id=None, args=None):
     """
@@ -78,8 +74,6 @@ def get_dataset_scores_by_rec_add_pre_score(scores, metadata, person_keys, max_c
             continue
         clip_res_fn = os.path.join(per_frame_scores_root, clip)
         clip_gt = np.load(clip_res_fn)
-        if 'IITB' in args.data_dir:
-            clip_gt = np.insert(clip_gt, 0, [0])
         scene_id, clip_id = int(scene_id), int(clip_id)
         # find the sample index of the clip
         clip_metadata_inds = np.where((metadata_np[:, 1] == clip_id) &
@@ -97,7 +91,7 @@ def get_dataset_scores_by_rec_add_pre_score(scores, metadata, person_keys, max_c
             person_metadata_inds = np.where((metadata_np[:, 1] == clip_id) &
                                             (metadata_np[:, 0] == scene_id) &
                                             (metadata_np[:, 2] == person_id))[0]
-            pid_segment_scores = scores[person_metadata_inds]  # [N, T ]
+            pid_segment_scores = scores[person_metadata_inds] # [N, T ]
             # start frame index
             pid_frame_inds = np.array([metadata[i][3] for i in person_metadata_inds])
 
@@ -108,12 +102,7 @@ def get_dataset_scores_by_rec_add_pre_score(scores, metadata, person_keys, max_c
                 pid_segment_rec_scores[start:start+seg_len//2] = np.max((pid_segment_rec_scores[start:start+seg_len//2], segment_scores[:seg_len//2]), axis=0)
                 pid_segment_pre_scores[start+seg_len//2:start+seg_len] = np.max((pid_segment_pre_scores[start+seg_len//2:start+seg_len], segment_scores[seg_len//2:]), axis=0)
 
-                # pid_segment_rec_scores[start:start + seg_len // 2] = (pid_segment_rec_scores[start:start + seg_len // 2] + segment_scores[:seg_len // 2]) / 2
-                # pid_segment_pre_scores[start + seg_len // 2:start + seg_len] = (pid_segment_pre_scores[start + seg_len // 2:start + seg_len] + segment_scores[seg_len // 2:]) / 2
-
-            clip_person_scores_dict[person_id] = pid_segment_rec_scores + pid_segment_pre_scores
-            # clip_person_scores_dict[person_id] =  pid_segment_pre_scores
-
+            clip_person_scores_dict[person_id] = np.max((pid_segment_rec_scores, pid_segment_pre_scores), axis=0)
 
         clip_ppl_score_arr = np.stack(list(clip_person_scores_dict.values()))  # [persons, frames_score]
         clip_score = np.amax(clip_ppl_score_arr, axis=0)
@@ -173,15 +162,14 @@ def get_dataset_scores_by_sample_frame_score(scores, metadata, person_keys, max_
             person_metadata_inds = np.where((metadata_np[:, 1] == clip_id) &
                                             (metadata_np[:, 0] == scene_id) &
                                             (metadata_np[:, 2] == person_id))[0]
-            pid_segment_scores = scores[person_metadata_inds]  # [T,]
+            pid_segment_scores = scores[person_metadata_inds] # [T,]
             pid_frame_inds = np.array([metadata[i][3] for i in person_metadata_inds])
             # pid_scores = np.zeros((person_metadata_inds.shape[0], clip_frame_num))
             pid_segment_cnt = np.zeros(clip_frame_num)
             pid_segment_avg_scores = np.zeros(clip_frame_num)
             for segment_scores, start in zip(pid_segment_scores, pid_frame_inds):
                 # pid_segment_cnt[start:start+seg_len] += 1
-                pid_segment_avg_scores[start:start + seg_len] = np.max(
-                    (pid_segment_avg_scores[start:start + seg_len], segment_scores), axis=0)
+                pid_segment_avg_scores[start:start+seg_len] = np.max((pid_segment_avg_scores[start:start+seg_len],segment_scores),axis=0)
 
             #     pid_segment_avg_scores[start:start+seg_len] += segment_scores
             # pid_segment_cnt[pid_segment_cnt == 0] = 1
@@ -238,7 +226,7 @@ def get_dataset_scores_by_sample_avg_score(scores, metadata, person_keys, max_cl
         clip_fig_idxs = set([arr[2] for arr in clip_metadata])
 
         clip_score = np.zeros(clip_gt.shape[0])  # [clip frames, ]
-        fig_score_id = np.zeros(clip_gt.shape[0]) - 1
+        fig_score_id = np.zeros(clip_gt.shape[0])-1
 
         # clip_person_scores_dict = {i: np.copy(scores_zeros) for i in clip_fig_idxs}
 
@@ -257,8 +245,7 @@ def get_dataset_scores_by_sample_avg_score(scores, metadata, person_keys, max_cl
             # clip_person_scores_dict[person_id][pid_frame_inds] = pid_scores
 
         # calculate frame anomaly score
-        clip_person_keys_dict = {int(key.split('_')[-1]): person_keys[key] for key in person_keys.keys() if
-                                 clip.split('.')[0] in key}
+        clip_person_keys_dict = {int(key.split('_')[-1]): person_keys[key] for key in person_keys.keys() if clip.split('.')[0] in key}
         for frame_idx in range(clip_gt.shape[0]):
             frame_person_idxs = [p_idx for p_idx, p_keys in clip_person_keys_dict.items() if frame_idx in p_keys]
             if frame_person_idxs:
@@ -273,6 +260,7 @@ def get_dataset_scores_by_sample_avg_score(scores, metadata, person_keys, max_cl
     return dataset_gt_arr, dataset_scores_arr, dataset_score_ids_arr, dataset_metadata_arr
 
 
+
 def score_dataset(score_vals, metadata, person_keys, max_clip=None, scene_id=None, args=None):
     score_vals = np.array(score_vals)  # [samples, ]
 
@@ -282,9 +270,8 @@ def score_dataset(score_vals, metadata, person_keys, max_clip=None, scene_id=Non
 
     # gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores_by_sample_frame_score(score_vals, metadata, person_keys, max_clip, scene_id, args)
 
-    gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores_by_rec_add_pre_score(score_vals, metadata,
-                                                                                              person_keys, max_clip,
-                                                                                              scene_id, args)
+    gt_arr, scores_arr, score_ids_arr, metadata_arr = get_dataset_scores_by_rec_add_pre_score(score_vals, metadata, person_keys, max_clip, scene_id, args)
+
 
     # smooth
     # scores_np = np.concatenate(scores_arr)
@@ -296,13 +283,14 @@ def score_dataset(score_vals, metadata, person_keys, max_clip=None, scene_id=Non
     #     scores_smoothed_arr.append(scores_smoothed[frame_start:frame_start + len(scores_arr[i])])
     #     frame_start += len(scores_arr[i])
 
+
+
     # normalize to 0,1 and draw
     normalized_scores = normalize_scores(scores_arr)
     # smooth
     normalized_and_smooth_scores = smooth_scores(normalized_scores, args.sigma)
 
-    draw_anomaly_score_curve(normalized_scores, metadata_arr, gt_arr,
-                             cal_clip_roc_auc(gt_arr, normalized_and_smooth_scores), args.ckpt_dir.split('/')[2])
+    draw_anomaly_score_curve(normalized_scores, metadata_arr, gt_arr, cal_clip_roc_auc(gt_arr, normalized_and_smooth_scores), args.ckpt_dir.split('/')[2])
 
     # macro auc calculate
     gt_np = np.concatenate(gt_arr)
@@ -381,7 +369,9 @@ def score_align(scores_np, gt, seg_len=12, sigma=40):
     shift = seg_len + (seg_len // 2) - 1
     # scores_shifted[shift:] = scores_np[:-shift]
 
+
     # TODO normalized calculate auc
+
 
     # scores_smoothed = scores_np
     scores_smoothed = gaussian_filter1d(scores_np, sigma)

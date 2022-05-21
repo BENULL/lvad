@@ -33,7 +33,7 @@ class DecoderRNN(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.num_layers = num_layers
-        self.graph_convolution_gru = GraphConvolutionGRU(self.in_channels, self.out_channels, num_layers=2)
+        self.graph_convolution_gru = GraphConvolutionGRU(self.in_channels, self.out_channels, num_layers=self.num_layers)
 
     def forward(self, x, h=None):
         out, _ = self.graph_convolution_gru(x, h)
@@ -41,20 +41,21 @@ class DecoderRNN(nn.Module):
 
 
 class AutoEncoderRNN(nn.Module):
-    def __init__(self, in_channels=(3, 64), out_channels=(64, 64), num_layers=2):
+    def __init__(self, in_channels=(3, 3), out_channels=(3, 3), num_layers=2):
         super(AutoEncoderRNN, self).__init__()
-        self.encoder = EncoderRNN(in_channels=in_channels, out_channels=out_channels)
-        self.rec_decoder = DecoderRNN(in_channels=in_channels, out_channels=out_channels)
-        self.pre_decoder = DecoderRNN(in_channels=in_channels, out_channels=out_channels)
+        self.num_layers = num_layers
+        # self.encoder = EncoderRNN(in_channels=in_channels, out_channels=out_channels)
+        self.rec_decoder = DecoderRNN(in_channels=in_channels, out_channels=out_channels, num_layers=self.num_layers)
+        self.pre_decoder = DecoderRNN(in_channels=in_channels, out_channels=out_channels, num_layers=self.num_layers)
 
     def forward(self, x):
-        N, C, T, V = x.size()
-        encoder_h_n = self.encoder(x)
+        N, C, T, V = x[0].size()
+        encoder_h_n = x
         rec_decoder_h_0 = encoder_h_n.clone()
         pre_decoder_h_0 = encoder_h_n.clone()
 
-        rec_input = torch.zeros((N, C, T, V)).to(x.device)
-        pre_input = torch.zeros((N, C, T, V)).to(x.device)
+        rec_input = torch.zeros((N, C, 6, V)).to(x.device)
+        pre_input = torch.zeros((N, C, 6, V)).to(x.device)
 
         rec_out = self.rec_decoder(rec_input, rec_decoder_h_0)
         pre_out = self.pre_decoder(pre_input, pre_decoder_h_0)

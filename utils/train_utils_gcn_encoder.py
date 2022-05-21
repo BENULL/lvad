@@ -9,7 +9,7 @@ import shutil
 from torch.utils.tensorboard import SummaryWriter
 
 from utils.data_utils import normalize_pose, re_normalize_pose, normalize_pose_by_video
-from utils.draw_utils import draw_mask_skeleton
+from utils.draw_utils import draw_mask_skeleton, draw_mask_skeleton_seperate
 from utils.motion_embedder import MotionEmbedder
 from collections import defaultdict
 
@@ -153,7 +153,8 @@ class Trainer:
                 # + 0.5 * motion_loss / (motion_loss / local_loss).detach()
                 motion_loss = motion_loss/(motion_loss / local_loss).detach()
                 perceptual_loss = perceptual_loss / (perceptual_loss / local_loss).detach()
-                loss = 4*local_loss + 1*perceptual_loss + 1*motion_loss + 1e-3 * args.alpha * reg_loss
+                # loss = 4*local_loss + 1*perceptual_loss + 1*motion_loss + 1e-3 * args.alpha * reg_loss
+                loss = local_loss + 1e-3 * args.alpha * reg_loss #+ 1*perceptual_loss + 1*motion_loss
 
                 # loss = local_loss/local_loss.detach() + perceptual_loss/perceptual_loss.detach() + 1e-3 * args.alpha * reg_loss
 
@@ -225,19 +226,19 @@ class Trainer:
                     output_arr.append(output_sfmax.detach().cpu().numpy())
                     del output_sfmax
 
-                for origin, predict in zip(data, perceptual_out):
+                for origin, predict in zip(local_data, local_out):
                     loss = self.loss(origin, predict)
                     ret_loss = torch.mean(loss, (0, 2))
                     ret_reco_loss_arr.append(ret_loss.cpu().numpy())
 
-                reco_loss = self.loss(data, perceptual_out)
+                reco_loss = self.loss(local_data, local_out)
                 reco_loss = torch.mean(reco_loss)
                 reco_loss_arr.append(reco_loss.item())
 
-                draw_mask_skeleton(data.cpu().numpy(), origin_pose.cpu().numpy(), data_arr[2],
+                draw_mask_skeleton_seperate(data.cpu().numpy(), origin_pose.cpu().numpy(), data_arr[2],
                                    args.ckpt_dir.split('/')[2])
-                draw_mask_skeleton(data.cpu().numpy(), perceptual_out.cpu().numpy(), data_arr[2],
-                                   args.ckpt_dir.split('/')[2])
+                # draw_mask_skeleton(data.cpu().numpy(), perceptual_out.cpu().numpy(), data_arr[2],
+                #                    args.ckpt_dir.split('/')[2])
 
         test_loss = np.mean(reco_loss_arr)
 

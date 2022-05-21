@@ -76,7 +76,7 @@ class GraphConvolutionGRUCell(nn.Module):
 
         z = torch.sigmoid(self.xz_gcn(x)+self.hz_gcn(h))
         r = torch.sigmoid(self.xr_gcn(x)+self.hr_gcn(h))
-        h_wave = torch.tanh(self.xh_gcn(x) + self.hh_gcn(torch.mul(r,h)))
+        h_wave = torch.tanh(self.xh_gcn(x) + self.hh_gcn(torch.mul(r, h)))
         h_next = torch.mul((1 - z), h_wave) + torch.mul(z, h)
         return h_next
 

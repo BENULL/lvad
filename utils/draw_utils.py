@@ -129,25 +129,40 @@ def renderBbox(image, box, inplace: bool = True, inverseNormalization='auto'):
     if len(box) == 4:
         box = np.array(box).reshape(2, 2)
         box = preparePoint(box, (image.shape[1], image.shape[0]), inverseNormalization)
-        cv2.rectangle(image, tuple(box[0]), tuple(box[0]+box[1]), (255, 0, 0), thickness=1)
+        cv2.rectangle(image, tuple(box[0]), tuple(box[0]+box[1]), (0, 0, 255), thickness=2)
     return image
 
 def draw_skeleton_on_ShanghaiTech():
-    with open('/root/VAD/lvad/data/ShanghaiTech/pose/testing/tracked_person/03_0033_alphapose_tracked_person.json', 'r') as file:
+    with open('/root/VAD/lvad/data/ShanghaiTech/pose/testing/tracked_person/03_0035_alphapose_tracked_person.json', 'r') as file:
         skeleton_json = json.load(file)
-        visualization_path = '/root/VAD/lvad/visualization/03_0033/'
+        origin_path = '/root/VAD/dataset/ShanghaiTechDataset/Testing/frames_part1/03_0035/'
+        visualization_path = '/root/VAD/lvad/visualization/03_0035_bbox/'
+
         key_skeleton_dict = collections.defaultdict(list)
         for person_id, skeleton_dict in skeleton_json.items():
-            for key, skeleton in skeleton_dict.items():
-                keypoints = np.array(skeleton['keypoints']).reshape(-1,3)
-                keypoints = keypoints17_to_coco18(keypoints)
-                key_skeleton_dict[key].append(keypoints)
+            # vis for paper
+            if person_id=='1':
+                # for key, skeleton in skeleton_dict.items():
+                #     keypoints = np.array(skeleton['keypoints']).reshape(-1,3)
+                #     keypoints = keypoints17_to_coco18(keypoints)
+                #     key_skeleton_dict[key].append(keypoints)
+
+                for key, skeleton in skeleton_dict.items():
+                    keypoints = skeleton['box']
+                    # keypoints = keypoints17_to_coco18(keypoints)
+                    key_skeleton_dict[key].append(keypoints)
+
+        # RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_RED
+        # RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_RED
         for key, skeletons in key_skeleton_dict.items():
-            img_path = visualization_path + f'{key}.jpg'
+            img_path = origin_path + f'{key}.jpg'
+            output_path = visualization_path + f'{key}.jpg'
             img = cv2.imread(img_path)
             for skeleton in skeletons:
-                img = renderPose(img, skeleton, inplace=True)
-            cv2.imwrite(img_path, img)
+                img = renderBbox(img, skeleton, inplace=True)
+                # img = renderPose(img, skeleton, inplace=True)
+            cv2.imwrite(output_path, img)
+            # return
 
 
 
@@ -189,7 +204,7 @@ def draw_mask_skeleton(targets, predicts, metas, dir):
         # target = target.squeeze(1).T
         # target = (target + 1) / 2
 
-        scene_id, clip_id, person_id = meta[:3]
+        scene_id, clip_id, person_id, start_frame = meta[:4]
         if scene_id not in [1] or clip_id not in [14]:
             continue
 
@@ -225,7 +240,7 @@ def draw_mask_skeleton(targets, predicts, metas, dir):
 
 
         mask_imgs = np.concatenate(mask_imgs, axis=0)
-        cv2.imwrite(f'{dir}/{scene_id}-{clip_id}-{person_id}-{int(time.time()*10000)}.jpg', mask_imgs)
+        cv2.imwrite(f'{dir}/{scene_id}-{clip_id}-{person_id}-{start_frame}-{int(time.time()*10000)}.jpg', mask_imgs)
 
 
 def draw_anomaly_score_curve(score_arrs, meta_arrs, gt_arrs, aucs, dir):
@@ -245,9 +260,68 @@ def draw_anomaly_score_curve(score_arrs, meta_arrs, gt_arrs, aucs, dir):
         plt.savefig(f'{dir}/{scene}_{int(auc*10000)}_{int(time.time())}.png')
         plt.close()
 
+
+
+def draw_mask_skeleton_seperate(targets, predicts, metas, dir):
+    dir = f'/root/VAD/lvad/visualization/mask/{dir}'
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+
+    for target_b, predict_b, meta in zip(targets, predicts, metas):
+
+        # predict = predict.squeeze(1).T
+        # predict = (predict + 1) / 2
+        # target = target.squeeze(1).T
+        # target = (target + 1) / 2
+
+        scene_id, clip_id, person_id, start_frame = meta[:4]
+        if scene_id not in [3] or clip_id not in [41] or person_id not in [3]:
+            continue
+
+        mask_imgs = []
+        target_b = np.transpose(target_b, (1,2,0))
+        predict_b = np.transpose(predict_b, (1,2,0))
+
+        # predict_rec, predict_pred = predict_b[:-6, ...], predict_b[-6:, ...]
+
+        frame = 0
+        for target, predict in zip(target_b, predict_b):
+            mask_img = np.zeros((480, 856, 3), np.uint8)
+            mask_img.fill(255)
+
+            # target = re_normalize_pose(target, meta[5:])
+            # predict = re_normalize_pose(predict, meta[5:])
+            RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_RED
+            RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_RED
+            gt_img = renderPose(mask_img, target, inplace=False)
+            cv2.imwrite(f'{dir}/gt-{person_id}-{start_frame+frame}-{int(time.time() * 10000)}.jpg',
+                        gt_img)
+
+            if frame >= 6:
+                RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_YELLOW
+                RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_YELLOW
+                # predict_p = re_normalize_pose(predict_pred[frame-7], meta[5:])
+                pre_img = renderPose(mask_img, predict, inplace=False)
+                cv2.imwrite(f'{dir}/pre-{person_id}-{start_frame + frame}-{int(time.time() * 10000)}.jpg',
+                            pre_img)
+            else:
+                RENDER_CONFIG_OPENPOSE['pointColors'] = _OPENPOSE_POINT_COLORS_BLUE
+                RENDER_CONFIG_OPENPOSE['edgeColors'] = _OPENPOSE_EDGE_COLORS_BLUE
+                rec_img = renderPose(mask_img, predict, inplace=False)
+                cv2.imwrite(f'{dir}/rec-{person_id}-{start_frame + frame}-{int(time.time() * 10000)}.jpg',
+                            rec_img)
+
+            frame += 1
+            # mask_imgs.append(mask_img)
+
+
+        # mask_imgs = np.concatenate(mask_imgs, axis=0)
+        # cv2.imwrite(f'{dir}/{scene_id}-{clip_id}-{person_id}-{start_frame}-{int(time.time()*10000)}.jpg', mask_imgs)
+
 if __name__ == '__main__':
     # draw_skeleton_on_ShanghaiTech()
-    draw_predict_skeleton()
-
+    # draw_predict_skeleton()
+    # draw_mask_skeleton('03_0035_rec')
+    draw_skeleton_on_ShanghaiTech()
     # draw_mask_skeleton()
     # draw_skeleton_on_ShanghaiTech()

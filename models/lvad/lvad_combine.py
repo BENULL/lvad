@@ -11,6 +11,7 @@ import torch.nn as nn
 from models.lstm_autoencoder import TwoBranchAutoEncoderRNN
 from models.lstm_autoencoder import TwoBranchAutoEncoderGRU
 from models.agcn.agcn_with_tcn import Model as AGCN
+from models.memory_module import MemModule
 from models.msg3d.msg3d import Model as MSG3D
 
 class Model(nn.Module):
@@ -34,7 +35,7 @@ class Model(nn.Module):
             nn.Linear(256, self.mlp_input_size),
         )
 
-        self.pre_mlp_out = nn.Sequential(
+        self.mlp_out = nn.Sequential(
             nn.Linear(self.ae_hidden_size, 256),
             nn.ReLU(),
             # nn.Linear(128, 256),
@@ -43,15 +44,15 @@ class Model(nn.Module):
             # nn.ReLU(),
             nn.Linear(256, self.mlp_input_size),
         )
-        self.rec_mlp_out = nn.Sequential(
-            nn.Linear(self.ae_hidden_size, 256),
-            nn.ReLU(),
-            # nn.Linear(128, 256),
-            # nn.ReLU(),
-            # nn.Linear(256, 128),
-            # nn.ReLU(),
-            nn.Linear(256, self.mlp_input_size),
-        )
+        # self.rec_mlp_out = nn.Sequential(
+        #     nn.Linear(self.ae_hidden_size, 256),
+        #     nn.ReLU(),
+        #     # nn.Linear(128, 256),
+        #     # nn.ReLU(),
+        #     # nn.Linear(256, 128),
+        #     # nn.ReLU(),
+        #     nn.Linear(256, self.mlp_input_size),
+        # )
         self.perceptual_linear = nn.Sequential(
             nn.Linear(self.mlp_input_size, 128),
             nn.ReLU(),
@@ -63,6 +64,7 @@ class Model(nn.Module):
         )
         #nn.Linear(self.mlp_input_size, self.mlp_input_size)
 
+
     def forward(self, x):
         N, C, T, V = x.size()
         # gcn_out = self.gcn(x)
@@ -71,8 +73,8 @@ class Model(nn.Module):
         gcn_out = self.mlp_in(gcn_out)
 
         rec_out, pre_out = self.lstm_ae(gcn_out)
-        rec_out = self.rec_mlp_out(rec_out)
-        pre_out = self.pre_mlp_out(pre_out)
+        rec_out = self.mlp_out(rec_out)
+        pre_out = self.mlp_out(pre_out)
         rec_out = torch.flip(rec_out, dims=[1])
         local_out = torch.cat((rec_out, pre_out), dim=1)
         perceptual_out = self.perceptual_linear(local_out)
